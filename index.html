@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Messenger Web App</title>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- AUTH SCREEN -->
+  <div class="auth-container" id="auth-screen">
+    <div class="auth-card">
+      <div class="auth-header">
+        <i class="fa-solid fa-comments auth-logo"></i>
+        <h2 id="auth-title">Welcome Back</h2>
+        <p id="auth-subtitle">Sign in to start messaging in real time</p>
+      </div>
+
+      <form id="auth-form">
+        <div class="form-group hidden" id="name-group">
+          <label for="auth-name">Full Name</label>
+          <input type="text" id="auth-name" placeholder="Juan Dela Cruz" autocomplete="name" />
+        </div>
+
+        <div class="form-group">
+          <label for="auth-email">Email Address</label>
+          <input type="email" id="auth-email" placeholder="user@example.com" required autocomplete="email" />
+        </div>
+
+        <div class="form-group">
+          <label for="auth-password">Password</label>
+          <input type="password" id="auth-password" placeholder="••••••••" required autocomplete="current-password" />
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" id="auth-submit-btn">
+          Sign In
+        </button>
+      </form>
+
+      <div class="auth-footer">
+        <p id="auth-toggle-text">
+          Don't have an account? <a href="#" id="auth-toggle-btn">Sign Up</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP CONTAINER -->
+  <div class="app-container hidden" id="app-screen">
+    
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <header class="sidebar-header">
+        <div class="user-profile">
+          <div class="avatar-container" id="current-user-avatar">
+            <span id="user-initials">U</span>
+            <span class="status-indicator online"></span>
+          </div>
+          <div class="user-info">
+            <h3 id="current-user-name">Loading...</h3>
+            <p id="current-user-email" class="status-text">user@email.com</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" id="add-user-btn" title="Add Contact / Search Users">
+            <i class="fa-solid fa-user-plus"></i>
+          </button>
+          <button class="icon-btn" id="theme-toggle-btn" title="Toggle Theme">
+            <i class="fa-solid fa-moon"></i>
+          </button>
+          <button class="icon-btn logout-btn" id="logout-btn" title="Sign Out">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- SIDEBAR TABS: CHATS vs CONTACTS -->
+      <div class="sidebar-tabs">
+        <button class="tab-btn active" id="tab-chats-btn">
+          <i class="fa-regular fa-comment-dots"></i> Chats
+        </button>
+        <button class="tab-btn" id="tab-contacts-btn">
+          <i class="fa-regular fa-address-book"></i> Contacts (<span id="contacts-count">0</span>)
+        </button>
+      </div>
+
+      <!-- SEARCH BAR -->
+      <div class="search-container">
+        <div class="search-input-wrapper">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="user-search" placeholder="Search chats or contacts..." />
+        </div>
+      </div>
+
+      <!-- LIST CONTAINER -->
+      <div class="chats-list" id="chats-list">
+        <!-- Dynamic conversations or added contacts list -->
+      </div>
+    </aside>
+
+    <!-- MAIN CHAT AREA (Blank by Default) -->
+    <main class="chat-area" id="chat-area">
+      <!-- EMPTY BLANK STATE -->
+      <div class="empty-chat-state" id="empty-state">
+        <div class="empty-icon-circle">
+          <i class="fa-regular fa-paper-plane"></i>
+        </div>
+        <h2>Your Messages</h2>
+        <p>Pumili ng ka-chat sa listahan sa kaliwa, o mag-search at mag-add ng bagong user na kakausapin.</p>
+        <button class="btn btn-primary" id="start-add-user-btn">
+          <i class="fa-solid fa-user-plus"></i> Search & Add Users
+        </button>
+      </div>
+
+      <!-- ACTIVE CHAT INTERFACE -->
+      <div class="active-chat-wrapper hidden" id="active-chat-wrapper">
+        <header class="chat-header">
+          <button class="icon-btn mobile-back-btn" id="mobile-back-btn">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <div class="chat-info">
+            <div class="avatar-container" id="active-chat-avatar">
+              <span id="chat-initials">U</span>
+            </div>
+            <div>
+              <h3 id="active-chat-title">User Name</h3>
+              <p id="active-chat-subtitle" class="subtitle">Active now</p>
+            </div>
+          </div>
+        </header>
+
+        <!-- MESSAGES FEED -->
+        <div class="messages-container" id="messages-container"></div>
+
+        <!-- INPUT BAR -->
+        <footer class="chat-input-bar">
+          <div class="message-input-wrapper">
+            <textarea id="message-input" placeholder="Type a message..." rows="1"></textarea>
+          </div>
+          <button class="icon-btn send-btn" id="send-btn" title="Send Message">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </footer>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ADD USER / SEARCH MODAL -->
+  <div class="modal-overlay hidden" id="add-user-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-user-plus" style="color: var(--primary-color);"></i> Find & Add Registered Users</h3>
+        <button class="icon-btn" id="close-modal-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="search-input-wrapper" style="margin-bottom: 14px;">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="modal-user-search" placeholder="Search by name or email..." />
+        </div>
+        <div class="modal-users-list" id="modal-users-list">
+          <!-- All registered users dynamically loaded -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIREBASE MODULES -->
+  <script type="module" src="script.js"></script>
+</body>
+</html>
