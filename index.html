@@ -137,11 +137,27 @@
         <!-- MESSAGES FEED -->
         <div class="messages-container" id="messages-container"></div>
 
+        <!-- IMAGE PREVIEW CONTAINER BEFORE SENDING -->
+        <div class="image-preview-bar hidden" id="image-preview-bar">
+          <div class="image-preview-wrapper">
+            <img id="image-preview-img" src="" alt="Preview" />
+            <button class="icon-btn remove-image-btn" id="remove-image-btn" title="Remove Photo">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+
         <!-- INPUT BAR -->
         <footer class="chat-input-bar">
+          <label class="icon-btn photo-attach-btn" title="Attach Photo" for="image-file-input">
+            <i class="fa-regular fa-image"></i>
+            <input type="file" id="image-file-input" accept="image/*" class="hidden" />
+          </label>
+
           <div class="message-input-wrapper">
             <textarea id="message-input" placeholder="Type a message..." rows="1"></textarea>
           </div>
+          
           <button class="icon-btn send-btn" id="send-btn" title="Send Message">
             <i class="fa-solid fa-paper-plane"></i>
           </button>
@@ -167,6 +183,21 @@
           <!-- All registered users dynamically loaded -->
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- IMAGE VIEWER LIGHTBOX POPUP MODAL -->
+  <div class="lightbox-overlay hidden" id="lightbox-modal">
+    <div class="lightbox-toolbar">
+      <a id="lightbox-download-btn" href="#" download="photo.jpg" class="lightbox-action-btn" title="Download Image">
+        <i class="fa-solid fa-download"></i>
+      </a>
+      <button class="lightbox-action-btn" id="lightbox-close-btn" title="Close Viewer (Esc)">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="lightbox-content-container">
+      <img id="lightbox-img" src="" alt="Full View" />
     </div>
   </div>
 
