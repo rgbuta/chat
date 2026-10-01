@@ -250,17 +250,74 @@ body {
 .message-wrapper.outgoing .message-bubble { background-color: var(--bg-message-out); color: var(--text-white); border-bottom-right-radius: 4px; }
 .message-wrapper.incoming .message-bubble { background-color: var(--bg-message-in); color: var(--text-primary); border-bottom-left-radius: 4px; }
 
+/* PHOTO MESSAGE STYLES */
+.message-img {
+  max-width: 280px;
+  max-height: 280px;
+  border-radius: 12px;
+  display: block;
+  object-fit: cover;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.message-img:hover {
+  opacity: 0.92;
+  transform: scale(1.01);
+}
+
 .message-time { font-size: 0.68rem; opacity: 0.75; margin-top: 4px; display: block; text-align: right; }
+
+/* IMAGE PREVIEW BAR ABOVE INPUT */
+.image-preview-bar {
+  padding: 8px 20px;
+  background-color: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+}
+
+.image-preview-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.image-preview-wrapper img {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  background-color: #ef4444;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 0.75rem;
+}
+.remove-image-btn:hover { background-color: #dc2626; }
 
 .chat-input-bar {
   padding: 12px 20px; background-color: var(--bg-primary); border-top: 1px solid var(--border-color);
   display: flex; align-items: center; gap: 10px;
 }
 
+.photo-attach-btn {
+  color: var(--primary-color);
+  font-size: 1.2rem;
+}
+
 .message-input-wrapper { flex: 1; background-color: var(--bg-secondary); border-radius: 20px; padding: 8px 16px; }
 .message-input-wrapper textarea { width: 100%; border: none; background: transparent; color: var(--text-primary); outline: none; resize: none; max-height: 100px; }
 
-/* MODAL */
+/* MODAL OVERLAY */
 .modal-overlay {
   position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.5);
   display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(2px);
@@ -278,6 +335,74 @@ body {
 .user-search-card {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 12px; border-radius: var(--radius-md); background-color: var(--bg-secondary);
+}
+
+/* LIGHTBOX POPUP SYSTEM */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(8px);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.lightbox-toolbar {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 210;
+}
+
+.lightbox-action-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.lightbox-action-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.lightbox-content-container {
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.lightbox-content-container img {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .hidden { display: none !important; }
