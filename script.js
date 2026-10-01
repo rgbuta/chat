@@ -19,7 +19,6 @@ const firebaseConfig = {
   appId: "1:317629844028:web:98eae3b815e89012e7d139",
   measurementId: "G-2KEP28KTLR"
 };
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -38,6 +37,7 @@ let allUsers = [];
 let activeConversations = [];
 let userContacts = [];
 let isSignUpMode = false;
+let selectedImageData = null; // Base64 String for Attached Image
 
 // DOM Elements
 const authScreen = document.getElementById("auth-screen");
@@ -47,7 +47,6 @@ const authTitle = document.getElementById("auth-title");
 const authSubtitle = document.getElementById("auth-subtitle");
 const authSubmitBtn = document.getElementById("auth-submit-btn");
 const nameGroup = document.getElementById("name-group");
-const authToggleBtn = document.getElementById("auth-toggle-btn");
 const authToggleText = document.getElementById("auth-toggle-text");
 
 const authNameInput = document.getElementById("auth-name");
@@ -75,6 +74,11 @@ const messagesContainer = document.getElementById("messages-container");
 const messageInput = document.getElementById("message-input");
 const sendBtn = document.getElementById("send-btn");
 
+const imageFileInput = document.getElementById("image-file-input");
+const imagePreviewBar = document.getElementById("image-preview-bar");
+const imagePreviewImg = document.getElementById("image-preview-img");
+const removeImageBtn = document.getElementById("remove-image-btn");
+
 const logoutBtn = document.getElementById("logout-btn");
 const themeToggleBtn = document.getElementById("theme-toggle-btn");
 const mobileBackBtn = document.getElementById("mobile-back-btn");
@@ -85,6 +89,12 @@ const addUserModal = document.getElementById("add-user-modal");
 const closeModalBtn = document.getElementById("close-modal-btn");
 const modalUsersList = document.getElementById("modal-users-list");
 const modalUserSearch = document.getElementById("modal-user-search");
+
+// Lightbox Viewer DOM
+const lightboxModal = document.getElementById("lightbox-modal");
+const lightboxImg = document.getElementById("lightbox-img");
+const lightboxCloseBtn = document.getElementById("lightbox-close-btn");
+const lightboxDownloadBtn = document.getElementById("lightbox-download-btn");
 
 // ==========================================================================
 // 2. HELPER FUNCTIONS: RESET INPUTS & SWITCH MODE
@@ -139,11 +149,9 @@ authForm.addEventListener("submit", async (e) => {
     if (isSignUpMode) {
       if (!name) return alert("Please enter your name");
       
-      // Create user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: name });
       
-      // Save user to Firestore database
       await setDoc(doc(db, "users", userCredential.user.uid), {
         uid: userCredential.user.uid,
         name: name,
@@ -153,11 +161,10 @@ authForm.addEventListener("submit", async (e) => {
 
       alert("Registration successful! Returning to Sign In page.");
       clearAuthInputs();
-      switchToSignInMode(); // Switch back to login page
+      switchToSignInMode();
     } else {
-      // Sign In
       await signInWithEmailAndPassword(auth, email, password);
-      clearAuthInputs(); // Clear inputs after successful login
+      clearAuthInputs();
     }
   } catch (err) {
     alert("Auth Error: " + err.message);
@@ -171,7 +178,6 @@ onAuthStateChanged(auth, async (user) => {
     currentUserEmail.textContent = user.email;
     userInitials.textContent = (user.displayName || user.email).charAt(0).toUpperCase();
 
-    // Hide Auth, Show Main App Screen
     authScreen.classList.add("hidden");
     appScreen.classList.remove("hidden");
 
@@ -183,7 +189,6 @@ onAuthStateChanged(auth, async (user) => {
   } else {
     currentUser = null;
     
-    // Show Sign In page on Logout
     switchToSignInMode();
     clearAuthInputs();
 
@@ -209,6 +214,7 @@ function resetToBlankState() {
   emptyState.classList.remove("hidden");
   activeChatWrapper.classList.add("hidden");
   chatArea.classList.remove("active-mobile");
+  clearImageAttachment();
   if (unsubscribeMessages) unsubscribeMessages();
 }
 
@@ -385,7 +391,6 @@ function setupUnreadListener(targetUid) {
   });
 }
 
-// Sidebar Tab Switches
 tabChatsBtn.addEventListener("click", () => {
   currentTab = "chats";
   tabChatsBtn.classList.add("active");
@@ -488,7 +493,66 @@ userSearch.addEventListener("input", (e) => {
 });
 
 // ==========================================================================
-// 7. REALTIME CHAT & MESSAGING
+// 7. PHOTO ATTACHMENT & LIGHTBOX POPUP SYSTEM
+// ==========================================================================
+imageFileInput.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (file.size > 2 * 1024 * 1024) { // Limit to ~2MB for Base64 storage
+    alert("File is too large! Please select an image under 2MB.");
+    imageFileInput.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    selectedImageData = event.target.result;
+    imagePreviewImg.src = selectedImageData;
+    imagePreviewBar.classList.remove("hidden");
+  };
+  reader.readAsDataURL(file);
+});
+
+removeImageBtn.addEventListener("click", clearImageAttachment);
+
+function clearImageAttachment() {
+  selectedImageData = null;
+  imageFileInput.value = "";
+  imagePreviewImg.src = "";
+  imagePreviewBar.classList.add("hidden");
+}
+
+// Lightbox Popup Functions
+function openLightbox(src) {
+  lightboxImg.src = src;
+  lightboxDownloadBtn.href = src;
+  lightboxModal.classList.remove("hidden");
+}
+
+function closeLightbox() {
+  lightboxModal.classList.add("hidden");
+  lightboxImg.src = "";
+}
+
+lightboxCloseBtn.addEventListener("click", closeLightbox);
+
+// Close on clicking backdrop
+lightboxModal.addEventListener("click", (e) => {
+  if (e.target === lightboxModal || e.target.classList.contains("lightbox-content-container")) {
+    closeLightbox();
+  }
+});
+
+// Close on Escape key press
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !lightboxModal.classList.contains("hidden")) {
+    closeLightbox();
+  }
+});
+
+// ==========================================================================
+// 8. REALTIME CHAT & MESSAGING
 // ==========================================================================
 function getChatId(uid1, uid2) {
   return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
@@ -508,6 +572,7 @@ async function selectUserToChat(targetUser) {
   activeChatTitle.textContent = targetUser.name;
   chatInitials.textContent = targetUser.name.charAt(0).toUpperCase();
 
+  clearImageAttachment();
   listenToDirectMessages();
   markMessagesAsRead(targetUser.uid);
 }
@@ -561,12 +626,33 @@ function renderMessages(msgs) {
       ? new Date(msg.createdAt.toDate()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) 
       : "Just now";
 
+    let photoHTML = "";
+    if (msg.imageUrl) {
+      photoHTML = `<img src="${msg.imageUrl}" alt="Attached Photo" class="message-img" id="msg-img-${msg.id}" />`;
+    }
+
+    let textHTML = "";
+    if (msg.text) {
+      textHTML = `<div>${escapeHTML(msg.text)}</div>`;
+    }
+
     wrapper.innerHTML = `
       <div class="message-bubble">
-        ${escapeHTML(msg.text)}
+        ${photoHTML}
+        ${textHTML}
         <span class="message-time">${formattedTime}</span>
       </div>
     `;
+
+    // Attach click listener for Lightbox Modal
+    if (msg.imageUrl) {
+      const imgElement = wrapper.querySelector(`#msg-img-${msg.id}`);
+      if (imgElement) {
+        imgElement.addEventListener("click", () => {
+          openLightbox(msg.imageUrl);
+        });
+      }
+    }
 
     messagesContainer.appendChild(wrapper);
   });
@@ -584,16 +670,24 @@ messageInput.addEventListener("keydown", (e) => {
 
 async function sendMessage() {
   const text = messageInput.value.trim();
-  if (!text || !activeTargetUser) return;
+  const imageToSend = selectedImageData;
+
+  if ((!text && !imageToSend) || !activeTargetUser) return;
 
   const chatId = getChatId(currentUser.uid, activeTargetUser.uid);
+  
+  // Clear Inputs immediately
   messageInput.value = "";
+  clearImageAttachment();
 
-  // 1. Add Message
+  const previewText = imageToSend ? (text ? `📷 Photo: ${text}` : "📷 Photo") : text;
+
+  // 1. Add Message to Firestore
   await addDoc(collection(db, "chats", chatId, "messages"), {
     senderId: currentUser.uid,
     receiverId: activeTargetUser.uid,
-    text: text,
+    text: text || "",
+    imageUrl: imageToSend || null,
     isRead: false,
     createdAt: serverTimestamp()
   });
@@ -603,7 +697,7 @@ async function sendMessage() {
     targetUid: activeTargetUser.uid,
     targetName: activeTargetUser.name,
     targetEmail: activeTargetUser.email || "",
-    lastMessageText: text,
+    lastMessageText: previewText,
     lastMessageTime: serverTimestamp()
   });
 
@@ -612,7 +706,7 @@ async function sendMessage() {
     targetUid: currentUser.uid,
     targetName: currentUser.displayName || "User",
     targetEmail: currentUser.email || "",
-    lastMessageText: text,
+    lastMessageText: previewText,
     lastMessageTime: serverTimestamp()
   });
 }
@@ -637,4 +731,4 @@ function formatShortTime(date) {
 
 function escapeHTML(str) {
   return str ? str.replace(/[&<>'"]/g, tag => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[tag] || tag)) : "";
-} 
+}
