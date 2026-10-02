@@ -195,3 +195,17 @@ body { background: var(--bg-secondary); color: var(--text-primary); height:100vh
   .modal-card { width:94%!important; max-width:94%!important; max-height:85vh!important; }
   .incoming-call-popup { width:94%!important; max-width:94%!important; top:8px!important; padding:10px 12px!important; }
 }
+
+/* V12 DRAGGABLE CAMERA - MESSENGER STYLE */
+#video-call-modal { position: fixed; inset:0; background:black; z-index:10000; }
+#remoteVideo { width:100%; height:100%; object-fit:cover; }
+#localVideoWrapper {
+  position: absolute; bottom:90px; right:16px;
+  width:110px; height:150px; border-radius:12px;
+  overflow:hidden; border:2px solid white;
+  box-shadow:0 4px 12px rgba(0,0,0,0.3);
+  z-index:10001; cursor:grab; touch-action:none;
+  transition: box-shadow 0.2s;
+}
+#localVideoWrapper:active { cursor:grabbing; box-shadow:0 8px 20px rgba(0,0,0,0.5); transform:scale(1.05); }
+#localVideo { width:100%; height:100%; object-fit:cover; }
