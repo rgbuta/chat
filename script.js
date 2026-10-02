@@ -175,7 +175,7 @@ async function enableNotifications(){
     const permission=await Notification.requestPermission();
     if(permission!=="granted") return null;
     const registration=await navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(()=>null);
-    const token=await getToken(messaging,{ vapidKey: "YOUR_VAPID_KEY_HERE", serviceWorkerRegistration: registration||undefined });
+    const token=await getToken(messaging,{ vapidKey: "BJv1o6WbBqNxMEC6O41Dz2teCNu8U1j3HMZgongBqDjlz-XqOZmZ6taekNdAxOlfUmY0rJnXnjv63179kIBB-5A", serviceWorkerRegistration: registration||undefined });
     if(token && currentUser){
       await setDoc(doc(db,"users",currentUser.uid),{fcmToken:token,lastTokenUpdate:serverTimestamp()},{merge:true});
       return token;
