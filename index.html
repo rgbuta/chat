@@ -7,19 +7,37 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
   <style>
-    /* V5 OFFLINE FIX - SUPER VISIBLE BUTTONS */
+    /* V13 - EDIT NAME + DRAGGABLE + VISIBLE BUTTONS */
     .call-btn, .send-btn, .photo-attach-btn, .icon-btn {
       font-family: sans-serif !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
     }
-    .call-btn { width: 44px !important; height: 44px !important; border-radius: 50% !important; font-size: 20px !important; border: 2px solid #fff !important; box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; }
+    .call-btn { width: 44px !important; height: 44px !important; border-radius: 50% !important; font-size: 20px !important; border: 2px solid #fff !important; box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; cursor:pointer; }
     #voice-call-btn { background: #dcfce7 !important; }
     #video-call-btn { background: #0084ff !important; color: white !important; }
-    .send-btn { width: 44px !important; height: 44px !important; background: #0084ff !important; color: white !important; border-radius: 50% !important; font-size: 20px !important; flex-shrink: 0 !important; }
-    .photo-attach-btn { width: 44px !important; height: 44px !important; background: #e0f2fe !important; border-radius: 50% !important; font-size: 20px !important; flex-shrink: 0 !important; }
+    .send-btn { width: 44px !important; height: 44px !important; background: #0084ff !important; color: white !important; border-radius: 50% !important; font-size: 20px !important; flex-shrink: 0 !important; cursor:pointer; }
+    .photo-attach-btn { width: 44px !important; height: 44px !important; background: #e0f2fe !important; border-radius: 50% !important; font-size: 20px !important; flex-shrink: 0 !important; cursor:pointer; }
     .video-call-header-btns { display: flex !important; gap: 8px !important; }
+
+    /* VIDEO CALL MODAL DRAGGABLE */
+    #video-call-modal { position: fixed; inset:0; background:black; z-index:10000; display:flex; align-items:center; justify-content:center; }
+    #video-call-modal.hidden { display:none !important; }
+    .video-call-container { position:relative; width:100%; height:100%; }
+    #remoteVideo { width:100%; height:100%; object-fit:cover; background:#111; }
+    #localVideoWrapper {
+      position: absolute; bottom:90px; right:16px; width:110px; height:150px; border-radius:12px;
+      overflow:hidden; border:2px solid white; box-shadow:0 4px 12px rgba(0,0,0,0.3);
+      z-index:10001; cursor:grab; touch-action:none; transition: box-shadow 0.2s, transform 0.2s; background:#222;
+    }
+    #localVideoWrapper:active { cursor:grabbing; box-shadow:0 8px 20px rgba(0,0,0,0.5); transform:scale(1.05); }
+    #localVideo { width:100%; height:100%; object-fit:cover; }
+    #call-status { position:absolute; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.6); color:white; padding:8px 16px; border-radius:20px; font-size:14px; z-index:10002; }
+    .video-controls { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); display:flex; gap:16px; z-index:10002; }
+    .video-controls button { width:56px; height:56px; border-radius:50%; border:none; color:white; font-size:22px; cursor:pointer; background:rgba(255,255,255,0.25); backdrop-filter:blur(10px); }
+    #end-call-btn { background:#ef4444 !important; }
+    .video-controls button.muted { background:#ef4444 !important; }
   </style>
 </head>
 <body>
@@ -56,45 +74,50 @@
   <!-- MAIN APP -->
   <div class="app-container hidden" id="app-screen">
     <aside class="sidebar" id="sidebar">
-      <header class="sidebar-header">
-        <div class="user-profile">
-          <div class="avatar-container" id="current-user-avatar"><span id="user-initials">U</span><span class="status-indicator online"></span></div>
-          <div class="user-info"><h3 id="current-user-name">Loading...</h3><p id="current-user-email" class="status-text">user@email.com</p></div>
+      <header class="sidebar-header" style="display:flex;align-items:center;justify-content:space-between;padding:12px;gap:8px;background:white;border-bottom:1px solid #e4e6eb">
+        <div class="user-profile" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+          <div class="avatar-container" id="current-user-avatar" style="width:40px;height:40px;background:#0084ff;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;position:relative"><span id="user-initials">U</span><span class="status-indicator online" style="position:absolute;bottom:0;right:0;width:10px;height:10px;background:#31a24c;border:2px solid white;border-radius:50%"></span></div>
+          <div class="user-info" style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px">
+              <h3 id="current-user-name" style="margin:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Loading...</h3>
+              <button id="edit-name-btn" title="Edit your name (own only)" style="background:#e0f2fe;border:none;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">✏️</button>
+            </div>
+            <p id="current-user-email" class="status-text" style="font-size:11px;color:#65676b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:2px 0 0 0">user@email.com</p>
+          </div>
         </div>
-        <div class="header-actions">
-          <button class="icon-btn" id="add-user-btn" title="Add Contact" style="background:#e0f2fe">➕</button>
-          <button class="icon-btn" id="theme-toggle-btn" title="Toggle Theme" style="background:#f0f0f0">🌙</button>
-          <button class="icon-btn logout-btn" id="logout-btn" title="Sign Out" style="background:#fee2e2">🚪</button>
+        <div class="header-actions" style="display:flex;gap:6px">
+          <button class="icon-btn" id="add-user-btn" title="Add Contact" style="background:#e0f2fe;border:none;width:36px;height:36px;border-radius:50%;cursor:pointer">➕</button>
+          <button class="icon-btn" id="theme-toggle-btn" title="Toggle Theme" style="background:#f0f0f0;border:none;width:36px;height:36px;border-radius:50%;cursor:pointer">🌙</button>
+          <button class="icon-btn logout-btn" id="logout-btn" title="Sign Out" style="background:#fee2e2;border:none;width:36px;height:36px;border-radius:50%;cursor:pointer">🚪</button>
         </div>
       </header>
-      <div class="sidebar-tabs">
-        <button class="tab-btn active" id="tab-chats-btn">💬 Chats</button>
-        <button class="tab-btn" id="tab-contacts-btn">📒 Contacts (<span id="contacts-count">0</span>)</button>
+      <div class="sidebar-tabs" style="display:flex;border-bottom:1px solid #e4e6eb">
+        <button class="tab-btn active" id="tab-chats-btn" style="flex:1;padding:10px;border:none;background:transparent;cursor:pointer;font-weight:600;border-bottom:2px solid #0084ff">💬 Chats</button>
+        <button class="tab-btn" id="tab-contacts-btn" style="flex:1;padding:10px;border:none;background:transparent;cursor:pointer;color:#65676b">📒 Contacts (<span id="contacts-count">0</span>)</button>
       </div>
-      <div class="search-container">
-        <div class="search-input-wrapper">
+      <div class="search-container" style="padding:8px">
+        <div class="search-input-wrapper" style="display:flex;align-items:center;gap:8px;background:#f0f2f5;padding:8px 12px;border-radius:20px">
           <span class="search-icon">🔍</span>
-          <input type="text" id="user-search" placeholder="Search chats..." />
+          <input type="text" id="user-search" placeholder="Search chats..." style="border:none;background:transparent;outline:none;width:100%;font-size:14px" />
         </div>
       </div>
       <div class="chats-list" id="chats-list"></div>
     </aside>
 
     <main class="chat-area" id="chat-area">
-      <div class="empty-chat-state" id="empty-state">
-        <div class="empty-icon-circle">✈️</div>
+      <div class="empty-chat-state" id="empty-state" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px">
+        <div class="empty-icon-circle" style="width:80px;height:80px;background:#e0f2fe;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:16px">✈️</div>
         <h2>Your Messages</h2>
-        <p>Pumili ng ka-chat sa kaliwa. May Video Call na! 📹</p>
-        <button class="btn btn-primary" id="start-add-user-btn">➕ Search & Add Users</button>
+        <p style="color:#65676b;margin:8px 0 16px 0">Pumili ng ka-chat sa kaliwa. May Video Call na! 📹<br><small>Drag mo camera view mo + Edit own name mo lang boss!</small></p>
+        <button class="btn btn-primary" id="start-add-user-btn" style="background:#0084ff;color:white;border:none;padding:10px 20px;border-radius:20px;cursor:pointer">➕ Search & Add Users</button>
       </div>
 
-      <div class="active-chat-wrapper hidden" id="active-chat-wrapper">
-        <!-- HEADER WITH VISIBLE BUTTONS -->
+      <div class="active-chat-wrapper hidden" id="active-chat-wrapper" style="display:flex;flex-direction:column;height:100%">
         <header class="chat-header" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:white;border-bottom:1px solid #e4e6eb">
-          <button class="icon-btn mobile-back-btn" id="mobile-back-btn" style="width:40px;height:40px;background:#f0f2f5;border-radius:50%">⬅️</button>
+          <button class="icon-btn mobile-back-btn" id="mobile-back-btn" style="width:40px;height:40px;background:#f0f2f5;border:none;border-radius:50%;cursor:pointer">⬅️</button>
           <div class="chat-info" style="display:flex;align-items:center;gap:10px;flex:1">
             <div class="avatar-container" id="active-chat-avatar" style="width:40px;height:40px;background:#0084ff;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold"><span id="chat-initials">U</span></div>
-            <div><h3 id="active-chat-title" style="font-size:15px">User Name</h3><p id="active-chat-subtitle" class="subtitle" style="font-size:12px;color:#65676b">Active now</p></div>
+            <div><h3 id="active-chat-title" style="font-size:15px;margin:0">User Name</h3><p id="active-chat-subtitle" class="subtitle" style="font-size:12px;color:#65676b;margin:0">Active now</p></div>
           </div>
           <div class="video-call-header-btns">
             <button class="call-btn" id="voice-call-btn" title="Voice Call">📞</button>
@@ -102,18 +125,17 @@
           </div>
         </header>
 
-        <div class="messages-container" id="messages-container"></div>
+        <div class="messages-container" id="messages-container" style="flex:1;overflow-y:auto;padding:12px;background:#f0f2f5"></div>
 
-        <div class="typing-indicator-bar hidden" id="typing-indicator-bar"><div class="typing-dots"><span></span><span></span><span></span></div><span id="typing-user-text">User is typing...</span></div>
+        <div class="typing-indicator-bar hidden" id="typing-indicator-bar" style="padding:8px 12px;background:white;border-top:1px solid #eee;display:flex;align-items:center;gap:8px;font-size:13px;color:#65676b"><div class="typing-dots"><span></span><span></span><span></span></div><span id="typing-user-text">User is typing...</span></div>
 
-        <div class="reply-banner hidden" id="reply-banner">
-          <div class="reply-banner-content"><div class="reply-banner-header">↩️ Replying to <strong id="reply-sender-name">User</strong></div><p class="reply-banner-text" id="reply-preview-text">Message preview...</p></div>
-          <button class="icon-btn cancel-reply-btn" id="cancel-reply-btn">❌</button>
+        <div class="reply-banner hidden" id="reply-banner" style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#e0f2fe;border-left:4px solid #0084ff">
+          <div class="reply-banner-content"><div class="reply-banner-header" style="font-size:12px">↩️ Replying to <strong id="reply-sender-name">User</strong></div><p class="reply-banner-text" id="reply-preview-text" style="font-size:13px;margin:2px 0 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Message preview...</p></div>
+          <button class="icon-btn cancel-reply-btn" id="cancel-reply-btn" style="width:28px;height:28px;background:white;border:none;border-radius:50%;cursor:pointer">❌</button>
         </div>
 
-        <div class="image-preview-bar hidden" id="image-preview-bar"><div class="image-preview-wrapper"><img id="image-preview-img" src="" alt="Preview" /><button class="icon-btn remove-image-btn" id="remove-image-btn">❌</button></div></div>
+        <div class="image-preview-bar hidden" id="image-preview-bar" style="padding:8px 12px;background:white;border-top:1px solid #eee"><div class="image-preview-wrapper" style="position:relative;display:inline-block"><img id="image-preview-img" src="" alt="Preview" style="width:80px;height:80px;object-fit:cover;border-radius:8px" /><button class="icon-btn remove-image-btn" id="remove-image-btn" style="position:absolute;top:-8px;right:-8px;width:24px;height:24px;background:#ef4444;color:white;border:none;border-radius:50%;cursor:pointer">❌</button></div></div>
 
-        <!-- INPUT BAR WITH VISIBLE BUTTONS -->
         <footer class="chat-input-bar" style="display:flex;align-items:center;gap:8px;padding:10px;background:white;border-top:1px solid #e4e6eb">
           <label class="photo-attach-btn" title="Attach Photo" for="image-file-input" style="width:44px;height:44px;background:#e0f2fe;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px">📷<input type="file" id="image-file-input" accept="image/*" class="hidden" style="display:none" /></label>
           <div class="message-input-wrapper" style="flex:1;background:#f0f2f5;border-radius:20px;padding:8px 14px"><textarea id="message-input" placeholder="Type a message..." rows="1" style="width:100%;border:none;background:transparent;outline:none;resize:none;font-size:15px"></textarea></div>
@@ -123,35 +145,63 @@
     </main>
   </div>
 
-  <!-- MODALS -->
-  <div class="modal-overlay hidden" id="add-user-modal">
-    <div class="modal-card"><div class="modal-header"><h3>➕ Find Users</h3><button class="icon-btn" id="close-modal-btn">❌</button></div><div class="modal-body"><div class="search-input-wrapper" style="margin-bottom:14px"><span class="search-icon">🔍</span><input type="text" id="modal-user-search" placeholder="Search by name or email..." /></div><div class="modal-users-list" id="modal-users-list"></div></div></div>
+  <!-- FIND USERS MODAL -->
+  <div class="modal-overlay hidden" id="add-user-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;display:flex;align-items:center;justify-content:center">
+    <div class="modal-card" style="background:white;padding:0;border-radius:16px;width:90%;max-width:400px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column">
+      <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid #eee"><h3 style="margin:0">➕ Find Users</h3><button class="icon-btn" id="close-modal-btn" style="width:32px;height:32px;background:#f0f2f5;border:none;border-radius:50%;cursor:pointer">❌</button></div>
+      <div class="modal-body" style="padding:16px;overflow-y:auto"><div class="search-input-wrapper" style="display:flex;align-items:center;gap:8px;background:#f0f2f5;padding:8px 12px;border-radius:20px;margin-bottom:14px"><span class="search-icon">🔍</span><input type="text" id="modal-user-search" placeholder="Search by name or email..." style="border:none;background:transparent;outline:none;width:100%" /></div><div class="modal-users-list" id="modal-users-list"></div></div>
+    </div>
   </div>
 
-  <div class="lightbox-overlay hidden" id="lightbox-modal"><div class="lightbox-toolbar"><a id="lightbox-download-btn" href="#" download="photo.jpg" class="lightbox-action-btn" style="width:40px;height:40px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;text-decoration:none">⬇️</a><button class="lightbox-action-btn" id="lightbox-close-btn" style="width:40px;height:40px;background:rgba(255,255,255,0.2);border-radius:50%;border:none;color:white">❌</button></div><div class="lightbox-content-container"><img id="lightbox-img" src="" alt="Full View" /></div></div>
+  <!-- LIGHTBOX -->
+  <div class="lightbox-overlay hidden" id="lightbox-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:700;display:flex;align-items:center;justify-content:center">
+    <div class="lightbox-toolbar" style="position:absolute;top:16px;right:16px;display:flex;gap:8px;z-index:2"><a id="lightbox-download-btn" href="#" download="photo.jpg" class="lightbox-action-btn" style="width:40px;height:40px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;text-decoration:none">⬇️</a><button class="lightbox-action-btn" id="lightbox-close-btn" style="width:40px;height:40px;background:rgba(255,255,255,0.2);border-radius:50%;border:none;color:white;cursor:pointer">❌</button></div>
+    <div class="lightbox-content-container"><img id="lightbox-img" src="" alt="Full View" style="max-width:90vw;max-height:90vh;border-radius:8px" /></div>
+  </div>
 
-  <!-- VIDEO CALL MODAL V5 -->
+  <!-- VIDEO CALL MODAL V13 DRAGGABLE -->
   <div class="video-call-overlay hidden" id="video-call-modal">
     <div class="video-call-container">
       <video id="remoteVideo" autoplay playsinline></video>
-      <video id="localVideo" autoplay muted playsinline class="pip-video"></video>
+      <div id="localVideoWrapper">
+        <video id="localVideo" autoplay muted playsinline></video>
+      </div>
       <p id="call-status">Connecting...</p>
       <div class="video-controls">
-        <button id="mute-btn" title="Mute" style="width:56px;height:56px;background:rgba(255,255,255,0.25);border-radius:50%;border:none;color:white;font-size:22px">🎤</button>
-        <button id="camera-btn" title="Camera" style="width:56px;height:56px;background:rgba(255,255,255,0.25);border-radius:50%;border:none;color:white;font-size:22px">📹</button>
-        <button id="screen-btn" title="Share Screen" style="width:56px;height:56px;background:rgba(255,255,255,0.25);border-radius:50%;border:none;color:white;font-size:22px">🖥️</button>
-        <button id="end-call-btn" class="end-call" title="End Call" style="width:56px;height:56px;background:#ef4444;border-radius:50%;border:none;color:white;font-size:22px">❌</button>
+        <button id="mute-btn" title="Mute">🎤</button>
+        <button id="camera-btn" title="Camera">📹</button>
+        <button id="screen-btn" title="Share Screen">🖥️</button>
+        <button id="end-call-btn" class="end-call" title="End Call">❌</button>
       </div>
     </div>
   </div>
 
   <!-- INCOMING CALL -->
-  <div class="incoming-call-popup hidden" id="incoming-call-popup" style="position:fixed;top:20px;left:50%;transform:translateX(-50%);background:white;padding:16px 20px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.2);display:flex;align-items:center;gap:12px;z-index:500;min-width:320px">
-    <div class="avatar-container" id="incoming-avatar" style="width:48px;height:48px;background:#0084ff;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center"><span id="incoming-initials">U</span></div>
-    <div style="flex:1"><h3 id="incoming-name" style="font-size:14px">Incoming call...</h3><p style="font-size:12px;color:#65676b" id="incoming-type">Video call</p></div>
+  <div class="incoming-call-popup hidden" id="incoming-call-popup" style="position:fixed;top:20px;left:50%;transform:translateX(-50%);background:white;padding:16px 20px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.2);display:flex;align-items:center;gap:12px;z-index:600;min-width:320px">
+    <div class="avatar-container" id="incoming-avatar" style="width:48px;height:48px;background:#0084ff;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold"><span id="incoming-initials">U</span></div>
+    <div style="flex:1"><h3 id="incoming-name" style="font-size:14px;margin:0">Incoming call...</h3><p style="font-size:12px;color:#65676b;margin:2px 0 0 0" id="incoming-type">Video call</p></div>
     <div class="incoming-actions" style="display:flex;gap:8px">
-      <button id="decline-call-btn" class="btn btn-danger" style="background:#ef4444;color:white;border:none;padding:10px 14px;border-radius:20px">❌</button>
-      <button id="accept-call-btn" class="btn btn-primary" style="background:#0084ff;color:white;border:none;padding:10px 14px;border-radius:20px">📹 Accept</button>
+      <button id="decline-call-btn" class="btn btn-danger" style="background:#ef4444;color:white;border:none;padding:10px 14px;border-radius:20px;cursor:pointer">❌</button>
+      <button id="accept-call-btn" class="btn btn-primary" style="background:#0084ff;color:white;border:none;padding:10px 14px;border-radius:20px;cursor:pointer">📹 Accept</button>
+    </div>
+  </div>
+
+  <!-- EDIT OWN NAME MODAL V13 -->
+  <div class="modal-overlay hidden" id="edit-name-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:700;display:flex;align-items:center;justify-content:center">
+    <div class="modal-card" style="background:white;padding:20px;border-radius:16px;width:90%;max-width:360px;box-shadow:0 8px 24px rgba(0,0,0,0.2)">
+      <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3 style="margin:0">✏️ Edit Your Name</h3>
+        <button class="icon-btn" id="close-edit-name-btn" style="width:32px;height:32px;background:#f0f2f5;border-radius:50%;border:none;cursor:pointer">❌</button>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label style="font-size:13px;font-weight:600">Display Name (own account only)</label>
+        <input type="text" id="edit-name-input" placeholder="Enter new name" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:10px;margin-top:6px;font-size:15px;outline:none" />
+        <p style="font-size:11px;color:#65676b;margin-top:6px">⚠️ Ito lang own name mo boss, hindi mo pwede i-edit name ng iba!</p>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button id="cancel-edit-name-btn" style="padding:8px 16px;border:none;background:#f0f2f5;border-radius:20px;cursor:pointer">Cancel</button>
+        <button id="save-name-btn" style="padding:8px 20px;border:none;background:#0084ff;color:white;border-radius:20px;cursor:pointer;font-weight:600">Save</button>
+      </div>
     </div>
   </div>
 
