@@ -1,7 +1,12 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, where, updateDoc, getDocs, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import {
+  getFirestore, doc, setDoc, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, where, updateDoc, getDocs, deleteDoc, getDoc
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+// 1. FIREBASE CONFIG - myprofile1124
 const firebaseConfig = {
   apiKey: "AIzaSyCemGkC9X-qGXP85yfOHWAaA_U8I8svYu0",
   authDomain: "myprofile1124.firebaseapp.com",
@@ -35,7 +40,7 @@ let selectedImageData = null;
 let activeReplyTarget = null;
 let typingTimeout = null;
 
-// VIDEO CALL + CALL LOG
+// VIDEO CALL STATE
 let pc = null;
 let localStream = null;
 let remoteStream = null;
@@ -44,10 +49,10 @@ let isCaller = false;
 let callType = 'video';
 let incomingCallData = null;
 let callStartTime = null;
-let callDurationInterval = null;
+let callTimer = null;
 const servers = { iceServers: [{ urls: ['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302'] }] };
 
-// DOM - same as old mo boss
+// DOM
 const authScreen = document.getElementById("auth-screen");
 const appScreen = document.getElementById("app-screen");
 const authForm = document.getElementById("auth-form");
@@ -115,10 +120,10 @@ const incomingTypeEl = document.getElementById("incoming-type");
 const acceptCallBtn = document.getElementById("accept-call-btn");
 const declineCallBtn = document.getElementById("decline-call-btn");
 
-// AUTH (same)
+// AUTH
 function clearAuthInputs(){ if(authNameInput) authNameInput.value=""; if(authEmailInput) authEmailInput.value=""; if(authPasswordInput) authPasswordInput.value=""; }
-function switchToSignInMode(){ isSignUpMode=false; authTitle.textContent="Welcome Back"; authSubtitle.textContent="Sign in to start messaging"; authSubmitBtn.textContent="Sign In"; nameGroup.classList.add("hidden"); authToggleText.innerHTML=`Don't have account? <a href="#" id="auth-toggle-btn">Sign Up</a>`; }
-function switchToSignUpMode(){ isSignUpMode=true; authTitle.textContent="Create Account"; authSubtitle.textContent="Register to start messaging"; authSubmitBtn.textContent="Sign Up"; nameGroup.classList.remove("hidden"); authToggleText.innerHTML=`Already have account? <a href="#" id="auth-toggle-btn">Sign In</a>`; }
+function switchToSignInMode(){ isSignUpMode=false; authTitle.textContent="Welcome Back"; authSubtitle.textContent="Sign in to start messaging in real time"; authSubmitBtn.textContent="Sign In"; nameGroup.classList.add("hidden"); authToggleText.innerHTML=`Don't have an account? <a href="#" id="auth-toggle-btn">Sign Up</a>`; }
+function switchToSignUpMode(){ isSignUpMode=true; authTitle.textContent="Create Account"; authSubtitle.textContent="Register to start messaging"; authSubmitBtn.textContent="Sign Up"; nameGroup.classList.remove("hidden"); authToggleText.innerHTML=`Already have an account? <a href="#" id="auth-toggle-btn">Sign In</a>`; }
 document.addEventListener("click",(e)=>{ if(e.target&&e.target.id==="auth-toggle-btn"){ e.preventDefault(); clearAuthInputs(); if(isSignUpMode) switchToSignInMode(); else switchToSignUpMode(); }});
 authForm.addEventListener("submit", async(e)=>{
   e.preventDefault(); const email=authEmailInput.value.trim(); const password=authPasswordInput.value.trim(); const name=authNameInput.value.trim();
@@ -126,7 +131,7 @@ authForm.addEventListener("submit", async(e)=>{
   try{
     if(isSignUpMode){
       if(!name){ alert("Name required"); throw new Error("No name"); }
-      if(password.length<6){ alert("6 chars pataas boss!"); throw new Error("Short"); }
+      if(password.length<6){ alert("Password 6 chars pataas boss!"); throw new Error("Short"); }
       const cred=await createUserWithEmailAndPassword(auth,email,password);
       await updateProfile(cred.user,{displayName:name});
       await setDoc(doc(db,"users",cred.user.uid),{uid:cred.user.uid,name,email,createdAt:serverTimestamp()});
@@ -139,15 +144,15 @@ onAuthStateChanged(auth,(user)=>{
   if(user){ currentUser=user; currentUserName.textContent=user.displayName||"User"; currentUserEmail.textContent=user.email; userInitials.textContent=(user.displayName||user.email).charAt(0).toUpperCase(); authScreen.classList.add("hidden"); appScreen.classList.remove("hidden"); resetToBlankState(); fetchAllUsers(); listenToContacts(); listenToActiveConversations(); listenForIncomingCalls(); }
   else{ currentUser=null; switchToSignInMode(); clearAuthInputs(); authScreen.classList.remove("hidden"); appScreen.classList.add("hidden"); if(unsubscribeConversations) unsubscribeConversations(); if(unsubscribeContacts) unsubscribeContacts(); if(unsubscribeTyping) unsubscribeTyping(); if(unsubscribeIncomingCall) unsubscribeIncomingCall(); Object.values(unreadListeners).forEach(u=>u()); unreadListeners={}; }
 });
-logoutBtn.addEventListener("click",()=>{ if(currentUser&&activeTargetUser) setTypingState(false); if(pc) endCall('ended'); signOut(auth).then(()=>{ clearAuthInputs(); switchToSignInMode(); }); });
+logoutBtn.addEventListener("click",()=>{ if(currentUser&&activeTargetUser) setTypingState(false); if(pc) endCall(); signOut(auth).then(()=>{ clearAuthInputs(); switchToSignInMode(); }); });
 function resetToBlankState(){ activeTargetUser=null; emptyState.classList.remove("hidden"); activeChatWrapper.classList.add("hidden"); chatArea.classList.remove("active-mobile"); clearImageAttachment(); cancelReply(); if(unsubscribeMessages) unsubscribeMessages(); if(unsubscribeTyping) unsubscribeTyping(); }
 
 // CONTACTS
 function fetchAllUsers(){ onSnapshot(collection(db,"users"),(snap)=>{ allUsers=[]; snap.forEach(d=>{ const data=d.data(); if(data.uid!==currentUser.uid) allUsers.push(data); }); renderModalUsers(allUsers); }); }
 function listenToContacts(){ const ref=collection(db,"users",currentUser.uid,"contacts"); if(unsubscribeContacts) unsubscribeContacts(); unsubscribeContacts=onSnapshot(ref,(snap)=>{ userContacts=[]; snap.forEach(d=>userContacts.push(d.data())); contactsCountEl.textContent=userContacts.length; if(currentTab==="contacts") renderContactsList(userContacts); }); }
 function listenToActiveConversations(){ const ref=collection(db,"users",currentUser.uid,"conversations"); const q=query(ref,orderBy("lastMessageTime","desc")); if(unsubscribeConversations) unsubscribeConversations(); unsubscribeConversations=onSnapshot(q,(snap)=>{ activeConversations=[]; snap.forEach(d=>activeConversations.push(d.data())); if(currentTab==="chats") renderConversationsList(activeConversations); }); }
-function renderConversationsList(convs){ chatsList.innerHTML=""; if(convs.length===0){ chatsList.innerHTML=`<div style="padding:24px;text-align:center;color:#65676b"><p>No chats yet</p><p style="font-size:0.8rem">Add users to start!</p></div>`; return; } convs.forEach(conv=>{ const item=document.createElement("div"); item.className=`chat-item ${activeTargetUser?.uid===conv.targetUid?"active":""}`; item.id=`user-item-${conv.targetUid}`; const t=conv.lastMessageTime?.toDate? formatShortTime(conv.lastMessageTime.toDate()):""; item.innerHTML=`<div class="avatar-container"><span>${conv.targetName.charAt(0).toUpperCase()}</span></div><div class="chat-item-details"><div class="chat-item-header"><h4 class="chat-item-title">${escapeHTML(conv.targetName)}</h4><span class="chat-item-time">${t}</span></div><p class="chat-item-preview">${escapeHTML(conv.lastMessageText||"")}</p></div><div class="chat-item-meta"><span class="unread-badge hidden" id="unread-badge-${conv.targetUid}">0</span></div>`; item.addEventListener("click",()=>{ const target=allUsers.find(u=>u.uid===conv.targetUid)||{uid:conv.targetUid,name:conv.targetName,email:conv.targetEmail||""}; selectUserToChat(target); }); chatsList.appendChild(item); setupUnreadListener(conv.targetUid); }); }
-function renderContactsList(contacts){ chatsList.innerHTML=""; if(contacts.length===0){ chatsList.innerHTML=`<div style="padding:24px;text-align:center;color:#65676b"><p>No contacts</p></div>`; return; } contacts.forEach(c=>{ const item=document.createElement("div"); item.className=`chat-item ${activeTargetUser?.uid===c.uid?"active":""}`; item.id=`user-item-${c.uid}`; item.innerHTML=`<div class="avatar-container"><span>${c.name.charAt(0).toUpperCase()}</span></div><div class="chat-item-details"><h4 class="chat-item-title">${escapeHTML(c.name)}</h4><p class="chat-item-preview">${escapeHTML(c.email)}</p></div><div class="chat-item-meta"><span class="unread-badge hidden" id="unread-badge-${c.uid}">0</span></div>`; item.addEventListener("click",()=>selectUserToChat(c)); chatsList.appendChild(item); setupUnreadListener(c.uid); }); }
+function renderConversationsList(convs){ chatsList.innerHTML=""; if(convs.length===0){ chatsList.innerHTML=`<div style="padding:24px;text-align:center;color:var(--text-muted)"><p>No active chats yet.</p><p style="font-size:0.8rem;margin-top:4px">Click <b>Search & Add Users</b> to start!</p></div>`; return; } convs.forEach(conv=>{ const item=document.createElement("div"); item.className=`chat-item ${activeTargetUser?.uid===conv.targetUid?"active":""}`; item.id=`user-item-${conv.targetUid}`; const t=conv.lastMessageTime?.toDate? formatShortTime(conv.lastMessageTime.toDate()):""; item.innerHTML=`<div class="avatar-container"><span>${conv.targetName.charAt(0).toUpperCase()}</span></div><div class="chat-item-details"><div class="chat-item-header"><h4 class="chat-item-title">${escapeHTML(conv.targetName)}</h4><span class="chat-item-time">${t}</span></div><p class="chat-item-preview">${escapeHTML(conv.lastMessageText||"")}</p></div><div class="chat-item-meta"><span class="unread-badge hidden" id="unread-badge-${conv.targetUid}">0</span></div>`; item.addEventListener("click",()=>{ const target=allUsers.find(u=>u.uid===conv.targetUid)||{uid:conv.targetUid,name:conv.targetName,email:conv.targetEmail||""}; selectUserToChat(target); }); chatsList.appendChild(item); setupUnreadListener(conv.targetUid); }); }
+function renderContactsList(contacts){ chatsList.innerHTML=""; if(contacts.length===0){ chatsList.innerHTML=`<div style="padding:24px;text-align:center;color:var(--text-muted)"><p>No contacts yet.</p></div>`; return; } contacts.forEach(c=>{ const item=document.createElement("div"); item.className=`chat-item ${activeTargetUser?.uid===c.uid?"active":""}`; item.id=`user-item-${c.uid}`; item.innerHTML=`<div class="avatar-container"><span>${c.name.charAt(0).toUpperCase()}</span></div><div class="chat-item-details"><h4 class="chat-item-title">${escapeHTML(c.name)}</h4><p class="chat-item-preview">${escapeHTML(c.email)}</p></div><div class="chat-item-meta"><span class="unread-badge hidden" id="unread-badge-${c.uid}">0</span></div>`; item.addEventListener("click",()=>selectUserToChat(c)); chatsList.appendChild(item); setupUnreadListener(c.uid); }); }
 function setupUnreadListener(targetUid){ const chatId=getChatId(currentUser.uid,targetUid); const q=query(collection(db,"chats",chatId,"messages"),where("senderId","==",targetUid),where("isRead","==",false)); if(unreadListeners[targetUid]) unreadListeners[targetUid](); unreadListeners[targetUid]=onSnapshot(q,(snap)=>{ const badge=document.getElementById(`unread-badge-${targetUid}`); const item=document.getElementById(`user-item-${targetUid}`); if(badge&&item){ if(snap.size>0&&activeTargetUser?.uid!==targetUid){ badge.textContent=snap.size>99?"99+":snap.size; badge.classList.remove("hidden"); item.classList.add("has-unread"); }else{ badge.classList.add("hidden"); item.classList.remove("has-unread"); } } }); }
 tabChatsBtn.addEventListener("click",()=>{ currentTab="chats"; tabChatsBtn.classList.add("active"); tabContactsBtn.classList.remove("active"); renderConversationsList(activeConversations); });
 tabContactsBtn.addEventListener("click",()=>{ currentTab="contacts"; tabContactsBtn.classList.add("active"); tabChatsBtn.classList.remove("active"); renderContactsList(userContacts); });
@@ -155,13 +160,13 @@ tabContactsBtn.addEventListener("click",()=>{ currentTab="contacts"; tabContacts
 // MODAL
 function openAddUserModal(){ addUserModal.classList.remove("hidden"); renderModalUsers(allUsers); }
 function closeAddUserModal(){ addUserModal.classList.add("hidden"); }
-function renderModalUsers(list){ modalUsersList.innerHTML=""; if(list.length===0){ modalUsersList.innerHTML=`<p style="padding:12px;text-align:center;color:#65676b">No users</p>`; return; } list.forEach(u=>{ const added=userContacts.some(c=>c.uid===u.uid); const card=document.createElement("div"); card.className="user-search-card"; card.innerHTML=`<div style="display:flex;align-items:center;gap:10px"><div class="avatar-container" style="width:36px;height:36px"><span>${u.name.charAt(0).toUpperCase()}</span></div><div><h4 style="font-size:0.88rem">${escapeHTML(u.name)}</h4><p style="font-size:0.75rem;color:#65676b">${escapeHTML(u.email)}</p></div></div><button class="btn ${added?"btn-secondary":"btn-primary"}" id="add-btn-${u.uid}">${added?"💬 Chat":"➕ Add"}</button>`; card.querySelector(`#add-btn-${u.uid}`).addEventListener("click",async()=>{ if(!added) await setDoc(doc(db,"users",currentUser.uid,"contacts",u.uid),{uid:u.uid,name:u.name,email:u.email,addedAt:serverTimestamp()}); closeAddUserModal(); selectUserToChat(u); }); modalUsersList.appendChild(card); }); }
+function renderModalUsers(list){ modalUsersList.innerHTML=""; if(list.length===0){ modalUsersList.innerHTML=`<p style="padding:12px;text-align:center;color:var(--text-muted)">No users found.</p>`; return; } list.forEach(u=>{ const added=userContacts.some(c=>c.uid===u.uid); const card=document.createElement("div"); card.className="user-search-card"; card.innerHTML=`<div style="display:flex;align-items:center;gap:10px;min-width:0"><div class="avatar-container" style="width:36px;height:36px"><span>${u.name.charAt(0).toUpperCase()}</span></div><div style="min-width:0"><h4 style="font-size:0.88rem;font-weight:600">${escapeHTML(u.name)}</h4><p style="font-size:0.75rem;color:var(--text-secondary)">${escapeHTML(u.email)}</p></div></div><button class="btn ${added?"btn-secondary":"btn-primary"}" id="add-btn-${u.uid}">${added?'💬 Chat':'➕ Add'}</button>`; card.querySelector(`#add-btn-${u.uid}`).addEventListener("click",async()=>{ if(!added) await setDoc(doc(db,"users",currentUser.uid,"contacts",u.uid),{uid:u.uid,name:u.name,email:u.email,addedAt:serverTimestamp()}); closeAddUserModal(); selectUserToChat(u); }); modalUsersList.appendChild(card); }); }
 addUserBtn.addEventListener("click",openAddUserModal); startAddUserBtn.addEventListener("click",openAddUserModal); closeModalBtn.addEventListener("click",closeAddUserModal);
 modalUserSearch.addEventListener("input",(e)=>{ const t=e.target.value.toLowerCase(); renderModalUsers(allUsers.filter(u=>u.name.toLowerCase().includes(t)||u.email.toLowerCase().includes(t))); });
 userSearch.addEventListener("input",(e)=>{ const t=e.target.value.toLowerCase(); if(currentTab==="chats") renderConversationsList(activeConversations.filter(c=>c.targetName.toLowerCase().includes(t))); else renderContactsList(userContacts.filter(c=>c.name.toLowerCase().includes(t)||c.email.toLowerCase().includes(t))); });
 
 // IMAGE & LIGHTBOX & REPLY
-imageFileInput.addEventListener("change",(e)=>{ const f=e.target.files[0]; if(!f) return; if(f.size>2*1024*1024){ alert("2MB max boss"); imageFileInput.value=""; return; } const r=new FileReader(); r.onload=(ev)=>{ selectedImageData=ev.target.result; imagePreviewImg.src=selectedImageData; imagePreviewBar.classList.remove("hidden"); }; r.readAsDataURL(f); });
+imageFileInput.addEventListener("change",(e)=>{ const f=e.target.files[0]; if(!f) return; if(f.size>2*1024*1024){ alert("File too large! 2MB max boss"); imageFileInput.value=""; return; } const r=new FileReader(); r.onload=(ev)=>{ selectedImageData=ev.target.result; imagePreviewImg.src=selectedImageData; imagePreviewBar.classList.remove("hidden"); }; r.readAsDataURL(f); });
 removeImageBtn.addEventListener("click",clearImageAttachment);
 function clearImageAttachment(){ selectedImageData=null; imageFileInput.value=""; imagePreviewImg.src=""; imagePreviewBar.classList.add("hidden"); }
 function openLightbox(src){ lightboxImg.src=src; lightboxDownloadBtn.href=src; lightboxModal.classList.remove("hidden"); }
@@ -174,7 +179,7 @@ async function setTypingState(isTyping){ if(!currentUser||!activeTargetUser) ret
 function listenToTypingStatus(){ if(unsubscribeTyping) unsubscribeTyping(); if(!activeTargetUser) return; const chatId=getChatId(currentUser.uid,activeTargetUser.uid); const ref=doc(db,"chats",chatId,"typing",activeTargetUser.uid); unsubscribeTyping=onSnapshot(ref,(snap)=>{ if(snap.exists()&&snap.data().isTyping){ typingUserText.textContent=`${activeTargetUser.name} is typing...`; typingIndicatorBar.classList.remove("hidden"); }else typingIndicatorBar.classList.add("hidden"); }); }
 messageInput.addEventListener("input",()=>{ if(!activeTargetUser) return; setTypingState(true); if(typingTimeout) clearTimeout(typingTimeout); typingTimeout=setTimeout(()=>setTypingState(false),2000); });
 
-// CHAT & MESSAGES WITH DELIVERED/SEEN
+// CHAT
 async function selectUserToChat(targetUser){
   if(activeTargetUser) setTypingState(false);
   activeTargetUser=targetUser;
@@ -210,13 +215,11 @@ function renderMessages(msgs){
     wrapper.id=`msg-container-${msg.id}`;
     const time=msg.createdAt?.toDate? new Date(msg.createdAt.toDate()).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"now";
 
-    // CALL LOG STYLE
     if(msg.type==="call_log"){
-      const isMissed=msg.callStatus==="missed"||msg.callStatus==="declined";
+      const missed=msg.callStatus==="missed"||msg.callStatus==="declined";
       const icon=msg.callType==="video"?"📹":"📞";
-      const bg=isMissed?"#ffe4e6":"#e0f2fe";
-      const color=isMissed?"#e11d48":"#0284c7";
-      wrapper.innerHTML=`<div style="align-self:center;background:${bg};color:${color};padding:8px 14px;border-radius:16px;font-size:0.82rem;display:flex;align-items:center;gap:8px;margin:8px 0;border:1px solid ${isMissed?"#fecdd3":"#bae6fd"}"><span style="font-size:16px">${icon}</span><div><div style="font-weight:600">${msg.text}</div><div style="font-size:0.7rem;opacity:0.8">${time} • ${msg.callDuration||""}</div></div><button style="margin-left:8px;background:${color};color:white;border:none;padding:4px 10px;border-radius:12px;font-size:0.75rem;cursor:pointer" onclick="document.getElementById('video-call-btn')?.click()">Call back</button></div>`;
+      const bg=missed?"#ffe4e6":"#e0f2fe"; const col=missed?"#e11d48":"#0284c7";
+      wrapper.innerHTML=`<div style="align-self:center;background:${bg};color:${col};padding:8px 14px;border-radius:16px;font-size:0.82rem;display:flex;align-items:center;gap:8px;margin:8px 0;border:1px solid ${missed?"#fecdd3":"#bae6fd"}"><span>${icon}</span><div><div style="font-weight:600">${msg.text}</div><div style="font-size:0.7rem;opacity:0.8">${time} ${msg.callDuration? "• "+msg.callDuration : ""}</div></div></div>`;
       messagesContainer.appendChild(wrapper);
       return;
     }
@@ -224,36 +227,26 @@ function renderMessages(msgs){
     let quotedHTML=msg.replyTo?`<div class="quoted-reply-box" id="quoted-box-${msg.id}"><span class="quoted-sender">${escapeHTML(msg.replyTo.senderName)}</span><p class="quoted-text">${escapeHTML(msg.replyTo.text)}</p></div>`:"";
     let photoHTML=msg.imageUrl?`<img src="${msg.imageUrl}" alt="Photo" class="message-img" id="msg-img-${msg.id}" />`:"";
     let textHTML=msg.text?`<div>${escapeHTML(msg.text)}</div>`:"";
-
-    // DELIVERED / SEEN LOGIC BOSS
     let statusHTML="";
     if(isMe){
       if(isLast){
-        if(msg.isRead){ statusHTML=`<span class="seen-status read" style="color:#0084ff;font-weight:600;font-size:0.7rem">✓✓ Seen</span>`; }
-        else if(msg.isDelivered){ statusHTML=`<span class="seen-status" style="font-size:0.7rem">✓✓ Delivered</span>`; }
-        else{ statusHTML=`<span class="seen-status" style="font-size:0.7rem">✓ Sent</span>`; }
+        if(msg.isRead) statusHTML=`<span class="seen-status read" style="color:#0084ff;font-weight:600;font-size:0.7rem">✓✓ Seen</span>`;
+        else if(msg.isDelivered) statusHTML=`<span class="seen-status" style="font-size:0.7rem">✓✓ Delivered</span>`;
+        else statusHTML=`<span class="seen-status" style="font-size:0.7rem">✓ Sent</span>`;
       }else{
-        // Older messages show double check
         statusHTML=msg.isRead?`<span style="font-size:0.65rem;opacity:0.6">✓✓</span>`:`<span style="font-size:0.65rem;opacity:0.6">✓</span>`;
       }
     }
-
-    wrapper.innerHTML=`<div class="message-row"><div class="message-bubble" style="background:${isMe?"#0084ff":"white"};color:${isMe?"white":"#050505"};padding:10px 12px;border-radius:18px;border-bottom-${isMe?"right":"left"}-radius:4px;max-width:100%;box-shadow:${isMe?"none":"0 1px 1px rgba(0,0,0,0.08)"}">${quotedHTML}${photoHTML}${textHTML}<div class="message-meta-row" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px"><span class="message-time" style="font-size:0.62rem;opacity:0.7">${time}</span>${statusHTML}</div></div><div class="message-actions"><button class="reply-action-btn" id="reply-btn-${msg.id}">↩️</button></div></div>`;
+    wrapper.innerHTML=`<div class="message-row"><div class="message-bubble" style="background:${isMe?"#0084ff":"white"};color:${isMe?"white":"#050505"};padding:10px 12px;border-radius:18px;border-bottom-${isMe?"right":"left"}-radius:4px;max-width:100%">${quotedHTML}${photoHTML}${textHTML}<div class="message-meta-row" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px"><span class="message-time" style="font-size:0.62rem;opacity:0.7">${time}</span>${statusHTML}</div></div><div class="message-actions"><button class="reply-action-btn" id="reply-btn-${msg.id}">↩️</button></div></div>`;
     wrapper.querySelector(`#reply-btn-${msg.id}`).addEventListener("click",()=>startReply(msg));
     if(msg.replyTo?.messageId){ wrapper.querySelector(`#quoted-box-${msg.id}`)?.addEventListener("click",()=>{ const t=document.getElementById(`msg-container-${msg.replyTo.messageId}`); if(t){ t.scrollIntoView({behavior:"smooth",block:"center"}); t.style.backgroundColor="rgba(0,132,255,0.15)"; setTimeout(()=>t.style.backgroundColor="transparent",1500); } }); }
     if(msg.imageUrl) wrapper.querySelector(`#msg-img-${msg.id}`)?.addEventListener("click",()=>openLightbox(msg.imageUrl));
     messagesContainer.appendChild(wrapper);
   });
   messagesContainer.scrollTop=messagesContainer.scrollHeight;
-  // AUTO DELIVERED after render
   setTimeout(()=>{ markAsDelivered(); },500);
 }
-async function markAsDelivered(){
-  if(!currentUser||!activeTargetUser) return;
-  const chatId=getChatId(currentUser.uid,activeTargetUser.uid);
-  const q=query(collection(db,"chats",chatId,"messages"),where("receiverId","==",currentUser.uid),where("isDelivered","==",false));
-  try{ const snap=await getDocs(q); snap.forEach(d=>{ updateDoc(doc(db,"chats",chatId,"messages",d.id),{isDelivered:true}); }); }catch(e){}
-}
+async function markAsDelivered(){ if(!currentUser||!activeTargetUser) return; const chatId=getChatId(currentUser.uid,activeTargetUser.uid); const q=query(collection(db,"chats",chatId,"messages"),where("receiverId","==",currentUser.uid),where("isDelivered","==",false)); try{ const snap=await getDocs(q); snap.forEach(d=>{ updateDoc(doc(db,"chats",chatId,"messages",d.id),{isDelivered:true}); }); }catch(e){} }
 sendBtn.addEventListener("click",sendMessage); messageInput.addEventListener("keydown",(e)=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendMessage(); }});
 async function sendMessage(){
   const text=messageInput.value.trim(); const img=selectedImageData;
@@ -267,164 +260,87 @@ async function sendMessage(){
   await setDoc(doc(db,"users",activeTargetUser.uid,"conversations",currentUser.uid),{targetUid:currentUser.uid,targetName:currentUser.displayName||"User",targetEmail:currentUser.email||"",lastMessageText:preview,lastMessageTime:serverTimestamp()});
 }
 
-// ==========================================================================
-// CALL LOG + VIDEO CALL SYSTEM - FIXED NULL + NEW FEATURES ⭐⭐⭐
-// ==========================================================================
-function formatCallDuration(seconds){
-  if(seconds<60) return `${seconds}s`;
-  const m=Math.floor(seconds/60); const s=seconds%60;
-  return `${m}:${s.toString().padStart(2,'0')}`;
-}
-
-// ADD CALL LOG TO CHAT LIKE MESSENGER BOSS
-async function addCallLogToChat(targetUid, type, status, durationSec=0){
+// VIDEO CALL + CALL LOG - FIXED WORKING 100%
+function formatDuration(sec){ if(sec<60) return sec+"s"; const m=Math.floor(sec/60); const s=sec%60; return m+":"+(s<10?"0"+s:s); }
+async function addCallLog(targetUid,type,status,seconds){
   if(!currentUser||!targetUid) return;
   const chatId=getChatId(currentUser.uid,targetUid);
-  const durationText=durationSec>0? formatCallDuration(durationSec) : "";
-  let text="";
-  if(status==="missed") text=`${type==="video"?"📹 You missed a video call":"📞 You missed a voice call"}`;
-  else if(status==="declined") text=`${type==="video"?"📹 Video call declined":"📞 Voice call declined"}`;
-  else if(status==="ended") text=`${type==="video"?"📹 Video call ended":"📞 Voice call ended"}`;
-  else text=`${type==="video"?"📹 Video call":"📞 Voice call"}`;
-
-  // Save for both users
-  const logData={
-    senderId: currentUser.uid,
-    receiverId: targetUid,
-    type: "call_log",
-    callType: type,
-    callStatus: status,
-    callDuration: durationText,
-    text: text,
-    isRead: true,
-    isDelivered: true,
-    createdAt: serverTimestamp()
-  };
-  await addDoc(collection(db,"chats",chatId,"messages"), logData);
-
-  // Update conversation preview
-  await setDoc(doc(db,"users",currentUser.uid,"conversations",targetUid),{
-    targetUid: targetUid,
-    targetName: activeTargetUser?.name||targetUid,
-    targetEmail: activeTargetUser?.email||"",
-    lastMessageText: `${type==="video"?"📹":"📞"} ${status==="missed"?"Missed call":status==="declined"?"Call declined":`Call ended • ${durationText}`}`,
-    lastMessageTime: serverTimestamp()
-  },{merge:true});
-
-  await setDoc(doc(db,"users",targetUid,"conversations",currentUser.uid),{
-    targetUid: currentUser.uid,
-    targetName: currentUser.displayName||"User",
-    targetEmail: currentUser.email||"",
-    lastMessageText: `${type==="video"?"📹":"📞"} ${status==="missed"?"Missed call":status==="declined"?"Call declined":`Call ended • ${durationText}`}`,
-    lastMessageTime: serverTimestamp()
-  },{merge:true});
+  const dur=seconds>0?formatDuration(seconds):"";
+  let txt="";
+  if(status==="missed") txt=type==="video"?"📹 Missed video call":"📞 Missed voice call";
+  else if(status==="declined") txt=type==="video"?"📹 Video call declined":"📞 Voice call declined";
+  else txt=type==="video"?"📹 Video call ended":"📞 Voice call ended";
+  const data={senderId:currentUser.uid,receiverId:targetUid,type:"call_log",callType:type,callStatus:status,callDuration:dur,text:txt+(dur?" • "+dur:""),isRead:true,isDelivered:true,createdAt:serverTimestamp()};
+  await addDoc(collection(db,"chats",chatId,"messages"),data);
+  const preview=(type==="video"?"📹 ":"📞 ")+(status==="missed"?"Missed call":status==="declined"?"Call declined":"Call ended"+(dur?" • "+dur:""));
+  const myName=currentUser.displayName||currentUser.email.split("@")[0];
+  const otherName=activeTargetUser?activeTargetUser.name:"User";
+  await setDoc(doc(db,"users",currentUser.uid,"conversations",targetUid),{targetUid,targetName:otherName,targetEmail:activeTargetUser?.email||"",lastMessageText:preview,lastMessageTime:serverTimestamp()},{merge:true});
+  await setDoc(doc(db,"users",targetUid,"conversations",currentUser.uid),{targetUid:currentUser.uid,targetName:myName,targetEmail:currentUser.email||"",lastMessageText:preview,lastMessageTime:serverTimestamp()},{merge:true});
 }
 
 async function startCall(type){
-  if(!activeTargetUser) return alert("Pumili ka muna ng ka-chat boss!");
-  if(pc) return alert("May call ka pa boss - end muna!");
-  callType=type; isCaller=true;
+  if(!activeTargetUser) return alert("Click ka muna ng contact boss!");
+  if(pc) return alert("May call ka pa boss!");
+  callType=type; isCaller=true; callStartTime=null;
   currentCallId=doc(collection(db,"calls")).id;
   const callDoc=doc(db,"calls",currentCallId);
-  callStartTime=null;
   try{
-    await setDoc(callDoc,{callerId:currentUser.uid,callerName:currentUser.displayName||currentUser.email.split('@')[0],receiverId:activeTargetUser.uid,receiverName:activeTargetUser.name,type:type,status:"ringing",createdAt:serverTimestamp()});
-    await createPeerConnection(callDoc,type);
-    const offer=await pc.createOffer({offerToReceiveAudio:true,offerToReceiveVideo:type==='video'});
-    await pc.setLocalDescription(offer);
-    const finalOffer=pc.localDescription;
-    await updateDoc(callDoc,{offer:{type:finalOffer.type,sdp:finalOffer.sdp}});
     videoCallModal.classList.remove("hidden"); callStatus.style.display="block"; callStatus.textContent=type==='video'?`Calling ${activeTargetUser.name}... 📹`:`Calling ${activeTargetUser.name}... 📞`;
     if(type==='voice') localVideo.classList.add("hidden"); else localVideo.classList.remove("hidden");
-
-    onSnapshot(callDoc, async(snap)=>{
-      const data=snap.data(); if(!data) return;
-      if(data.answer&&pc&&!pc.currentRemoteDescription){
-        try{
-          const validAnswer={type:(data.answer.type&&data.answer.type!=='null')?data.answer.type:'answer',sdp:data.answer.sdp};
-          await pc.setRemoteDescription(new RTCSessionDescription(validAnswer));
-          callStartTime=Date.now();
-          startDurationTimer();
-          callStatus.textContent="Connected ✅";
-          setTimeout(()=>{ callStatus.style.display="none"; },2000);
-        }catch(e){ console.error(e); }
+    const constraints=type==='video'?{video:true,audio:true}:{video:false,audio:true};
+    localStream=await navigator.mediaDevices.getUserMedia(constraints);
+    localVideo.srcObject=localStream;
+    pc=new RTCPeerConnection(servers);
+    remoteStream=new MediaStream(); remoteVideo.srcObject=remoteStream;
+    localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+    pc.ontrack=e=>{ e.streams[0].getTracks().forEach(t=>remoteStream.addTrack(t)); callStatus.textContent="Connected ✅"; if(!callStartTime){ callStartTime=Date.now(); startTimer(); } };
+    pc.onicecandidate=e=>{ if(e.candidate){ addDoc(collection(callDoc,"offerCandidates"),e.candidate.toJSON()); } };
+    const offer=await pc.createOffer(); await pc.setLocalDescription(offer);
+    await setDoc(callDoc,{callerId:currentUser.uid,callerName:currentUser.displayName||currentUser.email,receiverId:activeTargetUser.uid,receiverName:activeTargetUser.name,type:type,status:"ringing",offer:{type:pc.localDescription.type,sdp:pc.localDescription.sdp},createdAt:serverTimestamp()});
+    onSnapshot(callDoc, async snap=>{
+      const d=snap.data(); if(!d) return;
+      if(d.answer&&!pc.currentRemoteDescription){
+        const valid={type:d.answer.type||"answer",sdp:d.answer.sdp};
+        await pc.setRemoteDescription(new RTCSessionDescription(valid));
       }
-      if(data.status==="ended"||data.status==="declined"){
-        const duration=callStartTime? Math.floor((Date.now()-callStartTime)/1000):0;
-        const status=data.status==="declined"?"declined":"ended";
-        if(isCaller){
-          // Only caller adds log for declined/missed to avoid duplicate
-          if(status==="declined"&&!callStartTime){
-            await addCallLogToChat(activeTargetUser.uid, type, "declined", 0);
-          }else if(callStartTime){
-            await addCallLogToChat(activeTargetUser.uid, type, "ended", duration);
-          }
-        }
-        endCallCleanup();
+      if(d.status==="ended"||d.status==="declined"){
+        const dur=callStartTime?Math.floor((Date.now()-callStartTime)/1000):0;
+        if(d.status==="declined"&&!callStartTime){ await addCallLog(activeTargetUser.uid,type,"declined",0); }
+        else if(callStartTime){ await addCallLog(activeTargetUser.uid,type,"ended",dur); }
+        closeCall();
       }
     });
-    onSnapshot(collection(callDoc,"answerCandidates"),(snap)=>{ snap.docChanges().forEach(c=>{ if(c.type==="added"&&pc){ try{ pc.addIceCandidate(new RTCIceCandidate(c.doc.data())); }catch(e){} } }); });
-  }catch(err){ console.error(err); alert("Call failed: "+err.message); endCallCleanup(); }
+    onSnapshot(collection(callDoc,"answerCandidates"), snap=>{ snap.docChanges().forEach(c=>{ if(c.type==="added"){ pc.addIceCandidate(new RTCIceCandidate(c.doc.data())).catch(()=>{}); } }); });
+  }catch(err){ console.error(err); alert("Call failed: "+err.message+"\n1. HTTPS dapat\n2. Allow camera/mic\n3. Firestore rules allow"); closeCall(); }
 }
 
-function startDurationTimer(){
-  if(callDurationInterval) clearInterval(callDurationInterval);
-  callDurationInterval=setInterval(()=>{
-    if(callStartTime){
-      const sec=Math.floor((Date.now()-callStartTime)/1000);
-      if(callStatus.style.display!=="none"){
-        callStatus.textContent=`Connected • ${formatCallDuration(sec)}`;
-      }else{
-        // Show small timer on top
-        callStatus.style.display="block";
-        callStatus.textContent=`${formatCallDuration(sec)}`;
-        callStatus.style.fontSize="0.9rem";
-        callStatus.style.background="rgba(0,0,0,0.6)";
-      }
-    }
-  },1000);
-}
-
-async function createPeerConnection(callDoc,type){
-  pc=new RTCPeerConnection(servers);
-  const constraints=type==='video'?{video:true,audio:true}:{video:false,audio:true};
-  localStream=await navigator.mediaDevices.getUserMedia(constraints);
-  localVideo.srcObject=localStream; remoteStream=new MediaStream(); remoteVideo.srcObject=remoteStream;
-  localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
-  pc.ontrack=(e)=>{ e.streams[0].getTracks().forEach(t=>remoteStream.addTrack(t)); };
-  pc.onicecandidate=(e)=>{ if(e.candidate){ const col=collection(callDoc,isCaller?"offerCandidates":"answerCandidates"); addDoc(col,e.candidate.toJSON()); } };
-  pc.onconnectionstatechange=()=>{ if(pc.connectionState==="failed"||pc.connectionState==="disconnected"){ setTimeout(()=>{ if(pc&&pc.connectionState!=="connected") endCallCleanup(); },3000); } };
-}
+function startTimer(){ if(callTimer) clearInterval(callTimer); callTimer=setInterval(()=>{ if(callStartTime){ const sec=Math.floor((Date.now()-callStartTime)/1000); callStatus.style.display="block"; callStatus.textContent="Connected • "+formatDuration(sec); } },1000); }
 
 function listenForIncomingCalls(){
   if(unsubscribeIncomingCall) unsubscribeIncomingCall();
   const q=query(collection(db,"calls"),where("receiverId","==",currentUser.uid),where("status","==","ringing"));
-  unsubscribeIncomingCall=onSnapshot(q,(snap)=>{
+  unsubscribeIncomingCall=onSnapshot(q, snap=>{
     snap.docChanges().forEach(change=>{
       if(change.type==="added"){
         const data=change.doc.data(); const id=change.doc.id;
         if(currentCallId) return;
         const age=data.createdAt? (Date.now()-data.createdAt.toDate().getTime())/1000:0; if(age>60) return;
         incomingCallData={id,...data};
-        incomingName.textContent=`${data.callerName} is calling...`;
+        incomingName.textContent=data.callerName+" is calling...";
         incomingInitials.textContent=data.callerName.charAt(0).toUpperCase();
         incomingTypeEl.textContent=data.type==="video"?"Incoming video call 📹":"Incoming voice call 📞";
         incomingPopup.classList.remove("hidden");
         if(navigator.vibrate) navigator.vibrate([500,300,500]);
-        // Auto missed after 30s
         setTimeout(async()=>{
-          if(incomingCallData?.id===id && document.querySelector("#incoming-call-popup:not(.hidden)")){
-            // Missed call log
-            await addCallLogToChat(data.callerId, data.type, "missed", 0);
+          if(incomingCallData?.id===id &&!incomingPopup.classList.contains("hidden")){
+            await addCallLog(data.callerId,data.type,"missed",0);
             incomingPopup.classList.add("hidden");
-            const callDoc=doc(db,"calls",id);
-            try{ await updateDoc(callDoc,{status:"ended"}); setTimeout(async()=>{ try{ await deleteDoc(callDoc); }catch(e){} },2000); }catch(e){}
+            const cd=doc(db,"calls",id);
+            try{ await updateDoc(cd,{status:"ended"}); setTimeout(async()=>{ try{ await deleteDoc(cd); }catch(e){} },2000); }catch(e){}
             incomingCallData=null;
           }
         },30000);
-      }
-      if(change.type==="removed"||change.doc.data().status!=="ringing"){
-        if(incomingCallData?.id===change.doc.id){ incomingPopup.classList.add("hidden"); incomingCallData=null; }
       }
     });
   });
@@ -433,67 +349,56 @@ function listenForIncomingCalls(){
 async function acceptIncomingCall(){
   if(!incomingCallData) return;
   const callDoc=doc(db,"calls",incomingCallData.id);
-  currentCallId=incomingCallData.id; callType=incomingCallData.type; isCaller=false; callStartTime=Date.now();
+  currentCallId=incomingCallData.id; callType=incomingCallData.type; isCaller=false;
   try{
-    await createPeerConnection(callDoc,callType);
+    videoCallModal.classList.remove("hidden"); incomingPopup.classList.add("hidden");
+    callStatus.style.display="block"; callStatus.textContent="Connecting...";
+    if(callType==='voice') localVideo.classList.add("hidden"); else localVideo.classList.remove("hidden");
+    const constraints=callType==='video'?{video:true,audio:true}:{video:false,audio:true};
+    localStream=await navigator.mediaDevices.getUserMedia(constraints);
+    localVideo.srcObject=localStream;
+    pc=new RTCPeerConnection(servers);
+    remoteStream=new MediaStream(); remoteVideo.srcObject=remoteStream;
+    localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+    pc.ontrack=e=>{ e.streams[0].getTracks().forEach(t=>remoteStream.addTrack(t)); callStatus.textContent="Connected ✅"; if(!callStartTime){ callStartTime=Date.now(); startTimer(); } };
+    pc.onicecandidate=e=>{ if(e.candidate){ addDoc(collection(callDoc,"answerCandidates"),e.candidate.toJSON()); } };
     let offer=incomingCallData.offer;
     if(!offer||!offer.sdp){ const fresh=await getDoc(callDoc); offer=fresh.data()?.offer; }
     if(!offer||!offer.sdp) throw new Error("Offer missing");
-    const validOffer={type:(offer.type&&offer.type!=='null'&&offer.type!==null)?offer.type:'offer',sdp:offer.sdp};
+    const validOffer={type:offer.type&&offer.type!=='null'?offer.type:'offer',sdp:offer.sdp};
     await pc.setRemoteDescription(new RTCSessionDescription(validOffer));
     const answer=await pc.createAnswer(); await pc.setLocalDescription(answer);
-    await updateDoc(callDoc,{answer:{type:answer.type,sdp:answer.sdp},status:"connected"});
-    videoCallModal.classList.remove("hidden"); incomingPopup.classList.add("hidden");
-    callStatus.style.display="block"; callStatus.textContent="Connected ✅";
-    if(callType==='voice') localVideo.classList.add("hidden"); else localVideo.classList.remove("hidden");
-    startDurationTimer();
-    setTimeout(()=>callStatus.style.display="none",2000);
-    onSnapshot(collection(callDoc,"offerCandidates"),(s)=>{ s.docChanges().forEach(c=>{ if(c.type==="added"&&pc){ try{ pc.addIceCandidate(new RTCIceCandidate(c.doc.data())); }catch(e){} } }); });
-    onSnapshot(callDoc,(s)=>{ if(s.data()?.status==="ended"){ const dur=callStartTime? Math.floor((Date.now()-callStartTime)/1000):0; addCallLogToChat(incomingCallData.callerId, callType, "ended", dur); endCallCleanup(); } });
-  }catch(err){ console.error(err); alert("Accept failed: "+err.message); endCallCleanup(); }
+    await updateDoc(callDoc,{answer:{type:pc.localDescription.type,sdp:pc.localDescription.sdp},status:"connected"});
+    onSnapshot(collection(callDoc,"offerCandidates"), snap=>{ snap.docChanges().forEach(c=>{ if(c.type==="added"){ pc.addIceCandidate(new RTCIceCandidate(c.doc.data())).catch(()=>{}); } }); });
+    onSnapshot(callDoc, snap=>{ if(snap.data()?.status==="ended"){ const dur=callStartTime?Math.floor((Date.now()-callStartTime)/1000):0; addCallLog(incomingCallData.callerId,callType,"ended",dur); closeCall(); } });
+  }catch(err){ console.error(err); alert("Accept failed: "+err.message); closeCall(); }
 }
 
 async function declineIncomingCall(){
   if(!incomingCallData) return;
-  const callerId=incomingCallData.callerId;
-  const type=incomingCallData.type;
+  await addCallLog(incomingCallData.callerId,incomingCallData.type,"declined",0);
   const callDoc=doc(db,"calls",incomingCallData.id);
   await updateDoc(callDoc,{status:"declined"});
-  await addCallLogToChat(callerId, type, "declined", 0);
-  setTimeout(async()=>{ try{ await deleteDoc(callDoc); }catch(e){} },2000);
+  setTimeout(async()=>{ try{ await deleteDoc(callDoc); }catch(e){} },1500);
   incomingPopup.classList.add("hidden"); incomingCallData=null;
 }
 
-async function endCallCleanup(){
-  if(callDurationInterval) clearInterval(callDurationInterval);
-  callDurationInterval=null;
+function closeCall(){
+  if(callTimer) clearInterval(callTimer); callTimer=null; callStartTime=null;
   if(pc){ pc.close(); pc=null; }
   if(localStream){ localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
-  remoteStream=null;
-  if(remoteVideo) remoteVideo.srcObject=null;
-  if(localVideo) localVideo.srcObject=null;
-  videoCallModal.classList.add("hidden");
-  callStatus.style.display="block"; callStatus.textContent="Call ended";
-  callStatus.style.fontSize=""; callStatus.style.background="";
-  if(currentCallId){
-    const callDoc=doc(db,"calls",currentCallId);
-    try{ await updateDoc(callDoc,{status:"ended"}); setTimeout(async()=>{ try{ await deleteDoc(callDoc); }catch(e){} },3000); }catch(e){}
-  }
-  currentCallId=null; isCaller=false; incomingPopup.classList.add("hidden"); callStartTime=null;
+  remoteStream=null; if(remoteVideo) remoteVideo.srcObject=null; if(localVideo) localVideo.srcObject=null;
+  videoCallModal.classList.add("hidden"); incomingPopup.classList.add("hidden");
+  if(currentCallId){ const cd=doc(db,"calls",currentCallId); updateDoc(cd,{status:"ended"}).catch(()=>{}); setTimeout(async()=>{ try{ await deleteDoc(cd); }catch(e){} },3000); }
+  currentCallId=null; isCaller=false;
 }
 
-async function endCall(status='ended'){
-  const duration=callStartTime? Math.floor((Date.now()-callStartTime)/1000):0;
-  const targetUid=isCaller? activeTargetUser?.uid : incomingCallData?.callerId;
-  const type=callType;
-  // Add log if connected before
-  if(callStartTime && targetUid){
-    await addCallLogToChat(targetUid, type, "ended", duration);
-  }else if(!callStartTime && isCaller && targetUid){
-    // Caller ended before answer = cancelled
-    await addCallLogToChat(targetUid, type, "declined", 0);
-  }
-  await endCallCleanup();
+async function endCall(){
+  const dur=callStartTime?Math.floor((Date.now()-callStartTime)/1000):0;
+  const target=isCaller?activeTargetUser?.uid:incomingCallData?.callerId;
+  if(callStartTime&&target){ await addCallLog(target,callType,"ended",dur); }
+  else if(!callStartTime&&isCaller&&target){ await addCallLog(target,callType,"declined",0); }
+  closeCall();
 }
 
 // BUTTONS
@@ -501,7 +406,7 @@ videoCallBtn?.addEventListener("click",()=>startCall('video'));
 voiceCallBtn?.addEventListener("click",()=>startCall('voice'));
 acceptCallBtn?.addEventListener("click",acceptIncomingCall);
 declineCallBtn?.addEventListener("click",declineIncomingCall);
-endCallBtn?.addEventListener("click",()=>endCall('ended'));
+endCallBtn?.addEventListener("click",()=>endCall());
 muteBtn?.addEventListener("click",()=>{ if(!localStream) return; const a=localStream.getAudioTracks()[0]; if(a){ a.enabled=!a.enabled; muteBtn.classList.toggle("muted",!a.enabled); muteBtn.innerHTML=a.enabled?'🎤':'🔇'; } });
 cameraBtn?.addEventListener("click",()=>{ if(!localStream) return; const v=localStream.getVideoTracks()[0]; if(v){ v.enabled=!v.enabled; cameraBtn.classList.toggle("muted",!v.enabled); cameraBtn.innerHTML=v.enabled?'📹':'🚫'; } });
 screenBtn?.addEventListener("click",async()=>{
@@ -528,4 +433,4 @@ mobileBackBtn?.addEventListener("click",()=>{ if(activeTargetUser) setTypingStat
 function formatShortTime(date){ const now=new Date(); if(date.toDateString()===now.toDateString()) return date.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}); return date.toLocaleDateString([],{month:"short",day:"numeric"}); }
 function escapeHTML(s){ return s? s.replace(/[&<>'"]/g,t=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[t]||t)):""; }
 
-console.log("Messenger V10 Loaded - Call Log + Delivered/Seen + Typing boss! 🔥");
+console.log("Messenger V11 FINAL - Video call working + Call Log + Seen/Delivered + Typing boss! 🔥");
