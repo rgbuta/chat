@@ -4,11 +4,23 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Messenger Web App</title>
-  <!-- Font Awesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <style>
+    /* V5 OFFLINE FIX - SUPER VISIBLE BUTTONS */
+    .call-btn, .send-btn, .photo-attach-btn, .icon-btn {
+      font-family: sans-serif !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    .call-btn { width: 44px !important; height: 44px !important; border-radius: 50% !important; font-size: 20px !important; border: 2px solid #fff !important; box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; }
+    #voice-call-btn { background: #dcfce7 !important; }
+    #video-call-btn { background: #0084ff !important; color: white !important; }
+    .send-btn { width: 44px !important; height: 44px !important; background: #0084ff !important; color: white !important; border-radius: 50% !important; font-size: 20px !important; flex-shrink: 0 !important; }
+    .photo-attach-btn { width: 44px !important; height: 44px !important; background: #e0f2fe !important; border-radius: 50% !important; font-size: 20px !important; flex-shrink: 0 !important; }
+    .video-call-header-btns { display: flex !important; gap: 8px !important; }
+  </style>
 </head>
 <body>
 
@@ -16,192 +28,133 @@
   <div class="auth-container" id="auth-screen">
     <div class="auth-card">
       <div class="auth-header">
-        <i class="fa-solid fa-comments auth-logo"></i>
+        <div style="font-size:40px;margin-bottom:8px">💬</div>
         <h2 id="auth-title">Welcome Back</h2>
-        <p id="auth-subtitle">Sign in to start messaging in real time</p>
+        <p id="auth-subtitle">Sign in to start messaging</p>
       </div>
-
       <form id="auth-form">
         <div class="form-group hidden" id="name-group">
           <label for="auth-name">Full Name</label>
           <input type="text" id="auth-name" placeholder="Juan Dela Cruz" autocomplete="name" />
         </div>
-
         <div class="form-group">
           <label for="auth-email">Email Address</label>
           <input type="email" id="auth-email" placeholder="user@example.com" required autocomplete="email" />
         </div>
-
         <div class="form-group">
           <label for="auth-password">Password</label>
           <input type="password" id="auth-password" placeholder="••••••••" required autocomplete="current-password" />
         </div>
-
-        <button type="submit" class="btn btn-primary btn-block" id="auth-submit-btn">
-          Sign In
-        </button>
+        <button type="submit" class="btn btn-primary btn-block" id="auth-submit-btn">Sign In</button>
       </form>
-
       <div class="auth-footer">
-        <p id="auth-toggle-text">
-          Don't have an account? <a href="#" id="auth-toggle-btn">Sign Up</a>
-        </p>
+        <p id="auth-toggle-text">Don't have an account? <a href="#" id="auth-toggle-btn">Sign Up</a></p>
       </div>
     </div>
   </div>
 
-  <!-- MAIN APP CONTAINER -->
+  <!-- MAIN APP -->
   <div class="app-container hidden" id="app-screen">
-    
-    <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
       <header class="sidebar-header">
         <div class="user-profile">
-          <div class="avatar-container" id="current-user-avatar">
-            <span id="user-initials">U</span>
-            <span class="status-indicator online"></span>
-          </div>
-          <div class="user-info">
-            <h3 id="current-user-name">Loading...</h3>
-            <p id="current-user-email" class="status-text">user@email.com</p>
-          </div>
+          <div class="avatar-container" id="current-user-avatar"><span id="user-initials">U</span><span class="status-indicator online"></span></div>
+          <div class="user-info"><h3 id="current-user-name">Loading...</h3><p id="current-user-email" class="status-text">user@email.com</p></div>
         </div>
         <div class="header-actions">
-          <button class="icon-btn" id="add-user-btn" title="Add Contact / Search Users">
-            <i class="fa-solid fa-user-plus"></i>
-          </button>
-          <button class="icon-btn" id="theme-toggle-btn" title="Toggle Theme">
-            <i class="fa-solid fa-moon"></i>
-          </button>
-          <button class="icon-btn logout-btn" id="logout-btn" title="Sign Out">
-            <i class="fa-solid fa-right-from-bracket"></i>
-          </button>
+          <button class="icon-btn" id="add-user-btn" title="Add Contact" style="background:#e0f2fe">➕</button>
+          <button class="icon-btn" id="theme-toggle-btn" title="Toggle Theme" style="background:#f0f0f0">🌙</button>
+          <button class="icon-btn logout-btn" id="logout-btn" title="Sign Out" style="background:#fee2e2">🚪</button>
         </div>
       </header>
-
-      <!-- SIDEBAR TABS: CHATS vs CONTACTS -->
       <div class="sidebar-tabs">
-        <button class="tab-btn active" id="tab-chats-btn">
-          <i class="fa-regular fa-comment-dots"></i> Chats
-        </button>
-        <button class="tab-btn" id="tab-contacts-btn">
-          <i class="fa-regular fa-address-book"></i> Contacts (<span id="contacts-count">0</span>)
-        </button>
+        <button class="tab-btn active" id="tab-chats-btn">💬 Chats</button>
+        <button class="tab-btn" id="tab-contacts-btn">📒 Contacts (<span id="contacts-count">0</span>)</button>
       </div>
-
-      <!-- SEARCH BAR -->
       <div class="search-container">
         <div class="search-input-wrapper">
-          <i class="fa-solid fa-magnifying-glass search-icon"></i>
-          <input type="text" id="user-search" placeholder="Search chats or contacts..." />
+          <span class="search-icon">🔍</span>
+          <input type="text" id="user-search" placeholder="Search chats..." />
         </div>
       </div>
-
-      <!-- LIST CONTAINER -->
-      <div class="chats-list" id="chats-list">
-        <!-- Dynamic conversations or added contacts list -->
-      </div>
+      <div class="chats-list" id="chats-list"></div>
     </aside>
 
-    <!-- MAIN CHAT AREA (Blank by Default) -->
     <main class="chat-area" id="chat-area">
-      <!-- EMPTY BLANK STATE -->
       <div class="empty-chat-state" id="empty-state">
-        <div class="empty-icon-circle">
-          <i class="fa-regular fa-paper-plane"></i>
-        </div>
+        <div class="empty-icon-circle">✈️</div>
         <h2>Your Messages</h2>
-        <p>Pumili ng ka-chat sa listahan sa kaliwa, o mag-search at mag-add ng bagong user na kakausapin.</p>
-        <button class="btn btn-primary" id="start-add-user-btn">
-          <i class="fa-solid fa-user-plus"></i> Search & Add Users
-        </button>
+        <p>Pumili ng ka-chat sa kaliwa. May Video Call na! 📹</p>
+        <button class="btn btn-primary" id="start-add-user-btn">➕ Search & Add Users</button>
       </div>
 
-      <!-- ACTIVE CHAT INTERFACE -->
       <div class="active-chat-wrapper hidden" id="active-chat-wrapper">
-        <header class="chat-header">
-          <button class="icon-btn mobile-back-btn" id="mobile-back-btn">
-            <i class="fa-solid fa-arrow-left"></i>
-          </button>
-          <div class="chat-info">
-            <div class="avatar-container" id="active-chat-avatar">
-              <span id="chat-initials">U</span>
-            </div>
-            <div>
-              <h3 id="active-chat-title">User Name</h3>
-              <p id="active-chat-subtitle" class="subtitle">Active now</p>
-            </div>
+        <!-- HEADER WITH VISIBLE BUTTONS -->
+        <header class="chat-header" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:white;border-bottom:1px solid #e4e6eb">
+          <button class="icon-btn mobile-back-btn" id="mobile-back-btn" style="width:40px;height:40px;background:#f0f2f5;border-radius:50%">⬅️</button>
+          <div class="chat-info" style="display:flex;align-items:center;gap:10px;flex:1">
+            <div class="avatar-container" id="active-chat-avatar" style="width:40px;height:40px;background:#0084ff;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold"><span id="chat-initials">U</span></div>
+            <div><h3 id="active-chat-title" style="font-size:15px">User Name</h3><p id="active-chat-subtitle" class="subtitle" style="font-size:12px;color:#65676b">Active now</p></div>
+          </div>
+          <div class="video-call-header-btns">
+            <button class="call-btn" id="voice-call-btn" title="Voice Call">📞</button>
+            <button class="call-btn" id="video-call-btn" title="Video Call">📹</button>
           </div>
         </header>
 
-        <!-- MESSAGES FEED -->
         <div class="messages-container" id="messages-container"></div>
 
-        <!-- IMAGE PREVIEW CONTAINER BEFORE SENDING -->
-        <div class="image-preview-bar hidden" id="image-preview-bar">
-          <div class="image-preview-wrapper">
-            <img id="image-preview-img" src="" alt="Preview" />
-            <button class="icon-btn remove-image-btn" id="remove-image-btn" title="Remove Photo">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
+        <div class="typing-indicator-bar hidden" id="typing-indicator-bar"><div class="typing-dots"><span></span><span></span><span></span></div><span id="typing-user-text">User is typing...</span></div>
+
+        <div class="reply-banner hidden" id="reply-banner">
+          <div class="reply-banner-content"><div class="reply-banner-header">↩️ Replying to <strong id="reply-sender-name">User</strong></div><p class="reply-banner-text" id="reply-preview-text">Message preview...</p></div>
+          <button class="icon-btn cancel-reply-btn" id="cancel-reply-btn">❌</button>
         </div>
 
-        <!-- INPUT BAR -->
-        <footer class="chat-input-bar">
-          <label class="icon-btn photo-attach-btn" title="Attach Photo" for="image-file-input">
-            <i class="fa-regular fa-image"></i>
-            <input type="file" id="image-file-input" accept="image/*" class="hidden" />
-          </label>
+        <div class="image-preview-bar hidden" id="image-preview-bar"><div class="image-preview-wrapper"><img id="image-preview-img" src="" alt="Preview" /><button class="icon-btn remove-image-btn" id="remove-image-btn">❌</button></div></div>
 
-          <div class="message-input-wrapper">
-            <textarea id="message-input" placeholder="Type a message..." rows="1"></textarea>
-          </div>
-          
-          <button class="icon-btn send-btn" id="send-btn" title="Send Message">
-            <i class="fa-solid fa-paper-plane"></i>
-          </button>
+        <!-- INPUT BAR WITH VISIBLE BUTTONS -->
+        <footer class="chat-input-bar" style="display:flex;align-items:center;gap:8px;padding:10px;background:white;border-top:1px solid #e4e6eb">
+          <label class="photo-attach-btn" title="Attach Photo" for="image-file-input" style="width:44px;height:44px;background:#e0f2fe;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px">📷<input type="file" id="image-file-input" accept="image/*" class="hidden" style="display:none" /></label>
+          <div class="message-input-wrapper" style="flex:1;background:#f0f2f5;border-radius:20px;padding:8px 14px"><textarea id="message-input" placeholder="Type a message..." rows="1" style="width:100%;border:none;background:transparent;outline:none;resize:none;font-size:15px"></textarea></div>
+          <button class="send-btn" id="send-btn" title="Send Message" style="width:44px;height:44px;background:#0084ff;color:white;border:none;border-radius:50%;font-size:20px;cursor:pointer">✈️</button>
         </footer>
       </div>
     </main>
-
   </div>
 
-  <!-- ADD USER / SEARCH MODAL -->
+  <!-- MODALS -->
   <div class="modal-overlay hidden" id="add-user-modal">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3><i class="fa-solid fa-user-plus" style="color: var(--primary-color);"></i> Find & Add Registered Users</h3>
-        <button class="icon-btn" id="close-modal-btn"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="modal-body">
-        <div class="search-input-wrapper" style="margin-bottom: 14px;">
-          <i class="fa-solid fa-magnifying-glass search-icon"></i>
-          <input type="text" id="modal-user-search" placeholder="Search by name or email..." />
-        </div>
-        <div class="modal-users-list" id="modal-users-list">
-          <!-- All registered users dynamically loaded -->
-        </div>
+    <div class="modal-card"><div class="modal-header"><h3>➕ Find Users</h3><button class="icon-btn" id="close-modal-btn">❌</button></div><div class="modal-body"><div class="search-input-wrapper" style="margin-bottom:14px"><span class="search-icon">🔍</span><input type="text" id="modal-user-search" placeholder="Search by name or email..." /></div><div class="modal-users-list" id="modal-users-list"></div></div></div>
+  </div>
+
+  <div class="lightbox-overlay hidden" id="lightbox-modal"><div class="lightbox-toolbar"><a id="lightbox-download-btn" href="#" download="photo.jpg" class="lightbox-action-btn" style="width:40px;height:40px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;text-decoration:none">⬇️</a><button class="lightbox-action-btn" id="lightbox-close-btn" style="width:40px;height:40px;background:rgba(255,255,255,0.2);border-radius:50%;border:none;color:white">❌</button></div><div class="lightbox-content-container"><img id="lightbox-img" src="" alt="Full View" /></div></div>
+
+  <!-- VIDEO CALL MODAL V5 -->
+  <div class="video-call-overlay hidden" id="video-call-modal">
+    <div class="video-call-container">
+      <video id="remoteVideo" autoplay playsinline></video>
+      <video id="localVideo" autoplay muted playsinline class="pip-video"></video>
+      <p id="call-status">Connecting...</p>
+      <div class="video-controls">
+        <button id="mute-btn" title="Mute" style="width:56px;height:56px;background:rgba(255,255,255,0.25);border-radius:50%;border:none;color:white;font-size:22px">🎤</button>
+        <button id="camera-btn" title="Camera" style="width:56px;height:56px;background:rgba(255,255,255,0.25);border-radius:50%;border:none;color:white;font-size:22px">📹</button>
+        <button id="screen-btn" title="Share Screen" style="width:56px;height:56px;background:rgba(255,255,255,0.25);border-radius:50%;border:none;color:white;font-size:22px">🖥️</button>
+        <button id="end-call-btn" class="end-call" title="End Call" style="width:56px;height:56px;background:#ef4444;border-radius:50%;border:none;color:white;font-size:22px">❌</button>
       </div>
     </div>
   </div>
 
-  <!-- IMAGE VIEWER LIGHTBOX POPUP MODAL -->
-  <div class="lightbox-overlay hidden" id="lightbox-modal">
-    <div class="lightbox-toolbar">
-      <a id="lightbox-download-btn" href="#" download="photo.jpg" class="lightbox-action-btn" title="Download Image">
-        <i class="fa-solid fa-download"></i>
-      </a>
-      <button class="lightbox-action-btn" id="lightbox-close-btn" title="Close Viewer (Esc)">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-    <div class="lightbox-content-container">
-      <img id="lightbox-img" src="" alt="Full View" />
+  <!-- INCOMING CALL -->
+  <div class="incoming-call-popup hidden" id="incoming-call-popup" style="position:fixed;top:20px;left:50%;transform:translateX(-50%);background:white;padding:16px 20px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.2);display:flex;align-items:center;gap:12px;z-index:500;min-width:320px">
+    <div class="avatar-container" id="incoming-avatar" style="width:48px;height:48px;background:#0084ff;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center"><span id="incoming-initials">U</span></div>
+    <div style="flex:1"><h3 id="incoming-name" style="font-size:14px">Incoming call...</h3><p style="font-size:12px;color:#65676b" id="incoming-type">Video call</p></div>
+    <div class="incoming-actions" style="display:flex;gap:8px">
+      <button id="decline-call-btn" class="btn btn-danger" style="background:#ef4444;color:white;border:none;padding:10px 14px;border-radius:20px">❌</button>
+      <button id="accept-call-btn" class="btn btn-primary" style="background:#0084ff;color:white;border:none;padding:10px 14px;border-radius:20px">📹 Accept</button>
     </div>
   </div>
 
-  <!-- FIREBASE MODULES -->
   <script type="module" src="script.js"></script>
 </body>
 </html>
